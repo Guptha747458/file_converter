@@ -1,0 +1,104 @@
+/* ============================================================
+   StatsGrid Component
+   ============================================================ */
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-md);
+}
+
+@media (max-width: 1200px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.stat-card {
+    position: relative;
+    padding: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    overflow: hidden;
+    animation: fadeInUp var(--duration-slow) var(--ease-smooth) both;
+    transition: transform var(--duration-med) var(--ease-smooth),
+        box-shadow var(--duration-med) var(--ease-smooth);
+}
+
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg), var(--shadow-glow);
+    border-color: var(--clr-border-hover);
+}
+
+.stat-card__glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+}
+
+.stat-card__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.stat-card__content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.stat-card__label {
+    font-size: 0.75rem;
+    color: var(--clr-text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-card__value {
+    font-family: var(--font-display);
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--clr-text-primary);
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+}
+
+.stat-card__change {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: var(--radius-full);
+    width: fit-content;
+}
+
+.stat-card__change--up {
+    color: var(--clr-success);
+    background: rgba(34, 211, 160, 0.1);
+}
+
+.stat-card__change--down {
+    color: var(--clr-danger);
+    background: rgba(244, 63, 94, 0.1);
+}
+
+.stat-card__change-arrow {
+    font-size: 0.65rem;
+}

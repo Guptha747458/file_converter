@@ -1,0 +1,176 @@
+/* ============================================================
+   Topbar Component
+   ============================================================ */
+
+.topbar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
+    padding: var(--space-md) var(--space-xl);
+    background: rgba(9, 12, 20, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--clr-border);
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    animation: fadeIn var(--duration-med) var(--ease-smooth);
+}
+
+.topbar__left {
+    min-width: 0;
+}
+
+.topbar__page-title {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--clr-text-primary);
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+}
+
+.topbar__page-sub {
+    font-size: 0.75rem;
+    color: var(--clr-text-muted);
+    margin-top: 2px;
+    white-space: nowrap;
+}
+
+/* ---- Quick Convert Tools ---- */
+.topbar__tools {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    flex: 1;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.topbar__tool-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border-radius: var(--radius-full);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--clr-border);
+    color: var(--clr-text-secondary);
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-smooth);
+    white-space: nowrap;
+}
+
+.topbar__tool-btn:hover {
+    background: rgba(124, 92, 252, 0.15);
+    border-color: rgba(124, 92, 252, 0.45);
+    color: var(--clr-text-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(124, 92, 252, 0.2);
+}
+
+.topbar__tool-icon {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.topbar__tool-label {
+    display: inline;
+}
+
+/* ---- Right Section ---- */
+.topbar__right {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    flex-shrink: 0;
+}
+
+/* Search */
+.topbar__search {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 8px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--clr-border);
+    border-radius: var(--radius-full);
+    transition: all var(--duration-fast) var(--ease-smooth);
+}
+
+.topbar__search:focus-within {
+    background: rgba(124, 92, 252, 0.08);
+    border-color: var(--clr-primary);
+    box-shadow: 0 0 0 3px rgba(124, 92, 252, 0.15);
+}
+
+.topbar__search-icon {
+    color: var(--clr-text-muted);
+    flex-shrink: 0;
+}
+
+.topbar__search-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--clr-text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+    width: 170px;
+}
+
+.topbar__search-input::placeholder {
+    color: var(--clr-text-muted);
+}
+
+/* Icon buttons */
+.topbar__icon-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--clr-border);
+    color: var(--clr-text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all var(--duration-fast) var(--ease-smooth);
+}
+
+.topbar__icon-btn:hover {
+    background: rgba(124, 92, 252, 0.12);
+    border-color: var(--clr-border-hover);
+    color: var(--clr-text-primary);
+}
+
+.topbar__notif-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 14px;
+    height: 14px;
+    background: var(--clr-danger);
+    border-radius: 50%;
+    font-size: 0.58rem;
+    font-weight: 700;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--clr-bg-base);
+}
+
+@media (max-width: 900px) {
+    .topbar__tools {
+        display: none;
+    }
+
+    .topbar__search-input {
+        width: 120px;
+    }
+}

@@ -1,0 +1,139 @@
+/* ============================================================
+   FormatCards Component
+   ============================================================ */
+
+.format-cards-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.format-cards-section__header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.format-cards-section__title {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--clr-text-primary);
+    flex: 1;
+}
+
+.format-cards-section__badge {
+    padding: 4px 12px;
+    border-radius: var(--radius-full);
+    background: rgba(124, 92, 252, 0.12);
+    border: 1px solid rgba(124, 92, 252, 0.3);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--clr-primary-light);
+}
+
+/* ---- Cards Grid ---- */
+.format-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-md);
+}
+
+@media (max-width: 1100px) {
+    .format-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+    .format-cards {
+        grid-template-columns: 1fr;
+    }
+}
+
+.format-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    padding: var(--space-lg);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--clr-border);
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--font-sans);
+    overflow: hidden;
+    transition: all var(--duration-med) var(--ease-smooth);
+    animation: fadeInUp var(--duration-slow) var(--ease-smooth) both;
+}
+
+.format-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--clr-border-hover);
+    box-shadow: var(--shadow-lg);
+}
+
+.format-card__glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    transition: opacity var(--duration-med);
+}
+
+.format-card:hover .format-card__glow {
+    opacity: 1.5;
+}
+
+.format-card__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-xs);
+}
+
+.format-card__icon {
+    font-size: 1.6rem;
+    line-height: 1;
+}
+
+.format-card__tag {
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 0.65rem;
+    font-weight: 700;
+    border: 1px solid;
+    letter-spacing: 0.04em;
+}
+
+.format-card__label {
+    font-weight: 700;
+    font-size: 0.9rem;
+    font-family: var(--font-display);
+    position: relative;
+    z-index: 1;
+}
+
+.format-card__desc {
+    font-size: 0.72rem;
+    color: var(--clr-text-muted);
+    line-height: 1.5;
+    position: relative;
+    z-index: 1;
+}
+
+.format-card__arrow {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-top: var(--space-xs);
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: all var(--duration-med) var(--ease-smooth);
+    position: relative;
+    z-index: 1;
+}
+
+.format-card:hover .format-card__arrow {
+    opacity: 1;
+    transform: translateX(0);
+}

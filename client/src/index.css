@@ -1,68 +1,159 @@
+/* ============================================================
+   FileForge Design System — Global Styles
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+/* ---- CSS Custom Properties ---- */
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
+  /* Colors */
+  --clr-bg-base:       #090c14;
+  --clr-bg-surface:    #0f1322;
+  --clr-bg-elevated:   #151929;
+  --clr-bg-card:       rgba(21, 27, 44, 0.75);
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  --clr-primary:       #7c5cfc;
+  --clr-primary-light: #9b80ff;
+  --clr-primary-dark:  #5b3de8;
+  --clr-primary-glow:  rgba(124, 92, 252, 0.35);
 
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --clr-accent:        #00d4ff;
+  --clr-accent-glow:   rgba(0, 212, 255, 0.25);
+
+  --clr-success:       #22d3a0;
+  --clr-warning:       #f59e0b;
+  --clr-danger:        #f43f5e;
+
+  --clr-text-primary:  #f0f2ff;
+  --clr-text-secondary:#a0abc8;
+  --clr-text-muted:    #606882;
+
+  --clr-border:        rgba(124, 92, 252, 0.18);
+  --clr-border-hover:  rgba(124, 92, 252, 0.45);
+
+  /* Gradients */
+  --grad-primary:      linear-gradient(135deg, #7c5cfc 0%, #00d4ff 100%);
+  --grad-card:         linear-gradient(135deg, rgba(124,92,252,0.08) 0%, rgba(0,212,255,0.04) 100%);
+  --grad-bg:           radial-gradient(ellipse 80% 60% at 50% -10%, rgba(124,92,252,0.22) 0%, transparent 65%),
+                       radial-gradient(ellipse 50% 40% at 90% 80%, rgba(0,212,255,0.10) 0%, transparent 60%);
+
+  /* Typography */
+  --font-sans:         'Inter', system-ui, sans-serif;
+  --font-display:      'Space Grotesk', sans-serif;
+
+  /* Spacing */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+
+  /* Border radius */
+  --radius-sm:  8px;
+  --radius-md:  12px;
+  --radius-lg:  18px;
+  --radius-xl:  24px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-sm:  0 2px 8px rgba(0,0,0,0.35);
+  --shadow-md:  0 8px 24px rgba(0,0,0,0.45);
+  --shadow-lg:  0 16px 48px rgba(0,0,0,0.55);
+  --shadow-glow: 0 0 32px var(--clr-primary-glow);
+  --shadow-accent-glow: 0 0 24px var(--clr-accent-glow);
+
+  /* Transitions */
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-med:  250ms;
+  --duration-slow: 400ms;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+/* ---- Global Reset ---- */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
-a:hover {
-  color: #535bf2;
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
+  font-family: var(--font-sans);
+  background-color: var(--clr-bg-base);
+  color: var(--clr-text-primary);
+  line-height: 1.6;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+/* ---- Scrollbar Styling ---- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--clr-bg-surface); }
+::-webkit-scrollbar-thumb { background: var(--clr-primary); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--clr-primary-light); }
+
+/* ---- Selection ---- */
+::selection { background: rgba(124, 92, 252, 0.35); color: #fff; }
+
+/* ---- Focus ---- */
+:focus-visible {
+  outline: 2px solid var(--clr-primary);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* ---- Utility: Backdrop Blur Card ---- */
+.glass-card {
+  background: var(--clr-bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius-lg);
+}
+
+/* ---- Keyframe Animations ---- */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 16px var(--clr-primary-glow); }
+  50%       { box-shadow: 0 0 40px var(--clr-primary-glow), 0 0 80px rgba(124,92,252,0.15); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes progress-anim {
+  from { width: 0%; }
 }

@@ -1,0 +1,140 @@
+/* ============================================================
+   RecentActivity Component
+   ============================================================ */
+
+.recent-activity {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.recent-activity__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.recent-activity__title {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--clr-text-primary);
+}
+
+.recent-activity__view-all {
+    background: none;
+    border: none;
+    color: var(--clr-primary-light);
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    transition: background var(--duration-fast) var(--ease-smooth);
+}
+
+.recent-activity__view-all:hover {
+    background: rgba(124, 92, 252, 0.1);
+}
+
+.recent-activity__list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+/* ---- Activity Item ---- */
+.activity-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--clr-border);
+    background: rgba(255, 255, 255, 0.02);
+    transition: all var(--duration-fast) var(--ease-smooth);
+    animation: fadeInUp var(--duration-med) var(--ease-smooth) both;
+}
+
+.activity-item:hover {
+    border-color: var(--clr-border-hover);
+    background: rgba(124, 92, 252, 0.05);
+    transform: translateX(2px);
+}
+
+.activity-item__icon {
+    font-size: 1.3rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.activity-item__body {
+    flex: 1;
+    min-width: 0;
+}
+
+.activity-item__name {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--clr-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activity-item__meta {
+    font-size: 0.7rem;
+    color: var(--clr-text-muted);
+    margin-top: 2px;
+}
+
+.activity-item__conversion {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    flex-shrink: 0;
+}
+
+.format-tag {
+    padding: 3px 8px;
+    border-radius: var(--radius-full);
+    font-size: 0.68rem;
+    font-weight: 700;
+    border: 1px solid;
+    letter-spacing: 0.04em;
+}
+
+.activity-item__arrow {
+    font-size: 0.75rem;
+    color: var(--clr-text-muted);
+}
+
+.activity-item__time {
+    font-size: 0.7rem;
+    color: var(--clr-text-muted);
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.activity-item__download {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-sm);
+    background: rgba(0, 212, 255, 0.08);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    color: var(--clr-accent);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all var(--duration-fast) var(--ease-smooth);
+    padding: 0;
+}
+
+.activity-item__download:hover {
+    background: rgba(0, 212, 255, 0.18);
+    border-color: var(--clr-accent);
+    box-shadow: 0 0 12px var(--clr-accent-glow);
+}
