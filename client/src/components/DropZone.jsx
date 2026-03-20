@@ -5,17 +5,16 @@ const SUPPORTED_TYPES = [
     { ext: 'JPG → PNG', from: 'image/jpeg' },
     { ext: 'PNG → WEBP', from: 'image/png' },
     { ext: 'PDF → DOCX', from: 'application/pdf' },
-    { ext: 'MP4 → MP3', from: 'video/mp4' },
-    { ext: 'DOCX → PDF', from: 'application/vnd.openxmlformats' },
+    { ext: 'XLSX → CSV', from: 'spreadsheet' },
+    { ext: 'DOCX → TXT', from: 'application/vnd.openxmlformats' },
 ];
 
-const FORMAT_OPTIONS = ['PNG', 'JPG', 'WEBP', 'GIF', 'PDF', 'DOCX', 'MP3', 'MP4', 'AVI', 'ZIP'];
+const FORMAT_OPTIONS = ['PNG', 'JPG', 'WEBP', 'GIF', 'PDF', 'DOCX', 'MP3', 'MP4', 'AVI', 'ZIP', 'CSV', 'XLSX'];
 
-export default function DropZone() {
+export default function DropZone({ onNavigate }) {
     const [isDragging, setIsDragging] = useState(false);
     const [files, setFiles] = useState([]);
     const [targetFmt, setTargetFmt] = useState('PNG');
-    const [converting, setConverting] = useState(false);
     const fileRef = useRef(null);
 
     const handleDrag = (e, over) => {
@@ -50,27 +49,9 @@ export default function DropZone() {
         return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
     };
 
+    // Navigate to the real Convert page
     const handleConvert = () => {
-        if (!files.length) return;
-        setConverting(true);
-        // Simulate conversion progress
-        const ids = files.map(f => f.id);
-        let step = 0;
-        const interval = setInterval(() => {
-            step++;
-            setFiles(prev => prev.map(f =>
-                ids.includes(f.id)
-                    ? { ...f, status: 'converting', progress: Math.min(step * 10, 100) }
-                    : f
-            ));
-            if (step >= 10) {
-                clearInterval(interval);
-                setFiles(prev => prev.map(f =>
-                    ids.includes(f.id) ? { ...f, status: 'done', progress: 100 } : f
-                ));
-                setConverting(false);
-            }
-        }, 200);
+        if (onNavigate) onNavigate('convert');
     };
 
     const statusConfig = {
@@ -185,18 +166,14 @@ export default function DropZone() {
                     </div>
                     <button
                         id="convert-btn"
-                        className={`convert-btn ${converting ? 'convert-btn--loading' : ''}`}
+                        className="convert-btn"
                         onClick={handleConvert}
-                        disabled={converting || files.every(f => f.status === 'done')}
                     >
-                        {converting ? (
-                            <><span className="convert-btn__spinner" />Converting...</>
-                        ) : files.every(f => f.status === 'done') ? (
-                            '✓ All Conversions Complete'
-                        ) : (
-                            `⇄ Convert ${files.length} File${files.length !== 1 ? 's' : ''} to ${targetFmt}`
-                        )}
+                        {files.length > 0
+                            ? `⇄ Open Converter with ${files.length} File${files.length !== 1 ? 's' : ''} →`
+                            : '⇄ Go to File Converter →'}
                     </button>
+
                 </div>
             )}
         </div>

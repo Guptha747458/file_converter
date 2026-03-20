@@ -4,7 +4,7 @@ import RecentActivity from './RecentActivity';
 import FormatCards from './FormatCards';
 import './Dashboard.css';
 
-export default function Dashboard() {
+export default function Dashboard({ onNavigate }) {
     return (
         <main className="dashboard">
             {/* Background glow */}
@@ -19,7 +19,7 @@ export default function Dashboard() {
             <section className="dashboard__section dashboard__main-grid">
                 {/* Drop Zone / Converter */}
                 <div className="dashboard__primary glass-card">
-                    <DropZone />
+                    <DropZone onNavigate={onNavigate} />
                 </div>
 
                 {/* Recent Activity */}
@@ -30,7 +30,7 @@ export default function Dashboard() {
 
             {/* Format Categories */}
             <section className="dashboard__section">
-                <FormatCards />
+                <FormatCards onNavigate={onNavigate} />
             </section>
 
             {/* Quick Tips Banner */}
@@ -46,9 +46,12 @@ export default function Dashboard() {
                             </p>
                         </div>
                     </div>
-                    <button id="try-batch-btn" className="tips-banner__cta">Try Batch Convert →</button>
+                    <button id="try-batch-btn" className="tips-banner__cta" onClick={() => onNavigate?.('convert')}>
+                        Try Batch Convert →
+                    </button>
                 </div>
             </section>
         </main>
     );
 }
+

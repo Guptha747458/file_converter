@@ -4,6 +4,7 @@ import './Sidebar.css';
 const navItems = [
     { id: 'dashboard', icon: '⊞', label: 'Dashboard' },
     { id: 'convert', icon: '⇄', label: 'Convert' },
+    { id: 'formats', icon: '◈', label: 'Formats' },
     { id: 'history', icon: '◷', label: 'History' },
     { id: 'settings', icon: '⚙', label: 'Settings' },
 ];

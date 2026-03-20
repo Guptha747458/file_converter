@@ -13,10 +13,12 @@
     flex-direction: column;
     gap: var(--space-lg);
     padding: var(--space-lg);
-    background: linear-gradient(180deg, #0f1322 0%, #090c14 100%);
+    background: var(--clr-bg-surface);
     border-right: 1px solid var(--clr-border);
     transition: width var(--duration-med) var(--ease-smooth),
-        min-width var(--duration-med) var(--ease-smooth);
+        min-width var(--duration-med) var(--ease-smooth),
+        background-color 350ms var(--ease-smooth),
+        border-color 350ms var(--ease-smooth);
     overflow-y: auto;
     z-index: 100;
 }

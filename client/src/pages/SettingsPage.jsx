@@ -1,12 +1,14 @@
 import { useState } from 'react';
+import { useTheme } from '../context/ThemeContext';
 import './SettingsPage.css';
 
 const SECTIONS = ['General', 'Conversion', 'Storage', 'Notifications', 'Account', 'Advanced'];
 
 export default function SettingsPage() {
     const [activeSection, setActiveSection] = useState('General');
+    const { theme, setDark, setLight } = useTheme();
     const [settings, setSettings] = useState({
-        theme: 'dark',
+        theme: theme === 'dark' ? 'Dark' : 'Light',
         language: 'English',
         autoDownload: true,
         keepOriginal: true,
@@ -29,7 +31,18 @@ export default function SettingsPage() {
     });
 
     const toggle = (key) => setSettings(s => ({ ...s, [key]: !s[key] }));
-    const set = (key, val) => setSettings(s => ({ ...s, [key]: val }));
+    const set = (key, val) => {
+        setSettings(s => ({ ...s, [key]: val }));
+        if (key === 'theme') {
+            if (val === 'Dark') setDark();
+            else if (val === 'Light') setLight();
+            else {
+                // System preference
+                if (window.matchMedia('(prefers-color-scheme: light)').matches) setLight();
+                else setDark();
+            }
+        }
+    };
 
     const Toggle = ({ settingKey, label, desc }) => (
         <div className="setting-row">

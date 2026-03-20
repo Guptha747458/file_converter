@@ -1,67 +1,114 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
+import { convertFile, convertBatch, downloadFile, fmtSize } from '../utils/api';
 import './ConvertPage.css';
 
+// ── Format catalogue ──────────────────────────────────────────────────────────
 const FORMAT_GROUPS = [
-    { group: 'Image', color: '#7c5cfc', formats: ['PNG', 'JPG', 'WEBP', 'GIF', 'AVIF', 'SVG', 'BMP', 'TIFF'] },
-    { group: 'Document', color: '#00d4ff', formats: ['PDF', 'DOCX', 'XLSX', 'PPTX', 'TXT', 'ODT', 'RTF'] },
+    { group: 'Image', color: '#7c5cfc', formats: ['PNG', 'JPG', 'WEBP', 'GIF', 'AVIF', 'BMP', 'TIFF'] },
+    { group: 'Document', color: '#00d4ff', formats: ['PDF', 'DOCX', 'XLSX', 'TXT', 'CSV', 'HTML', 'JSON'] },
     { group: 'Audio', color: '#22d3a0', formats: ['MP3', 'WAV', 'FLAC', 'AAC', 'OGG', 'M4A'] },
-    { group: 'Video', color: '#f59e0b', formats: ['MP4', 'AVI', 'MOV', 'MKV', 'WEBM', 'FLV', 'GIF'] },
+    { group: 'Video', color: '#f59e0b', formats: ['MP4', 'AVI', 'MOV', 'MKV', 'WEBM', 'FLV'] },
     { group: 'Archive', color: '#f43f5e', formats: ['ZIP', 'TAR', 'GZ', '7Z', 'BZ2'] },
 ];
 
-const QUALITY_OPTIONS = [
-    { id: 'low', label: 'Low', desc: 'Smaller file size', icon: '📉' },
-    { id: 'medium', label: 'Medium', desc: 'Balanced quality', icon: '⚖️' },
-    { id: 'high', label: 'High', desc: 'Best quality', icon: '📈' },
-];
+const ALL_FORMATS = FORMAT_GROUPS.flatMap(g => g.formats);
 
+
+
+const FILE_ICON = name =>
+    /\.(jpg|jpeg|png|gif|webp|svg|avif|bmp|tiff)$/i.test(name) ? '🖼' :
+        /\.(pdf)$/i.test(name) ? '📄' :
+            /\.(docx|doc|odt|rtf)$/i.test(name) ? '📝' :
+                /\.(xlsx|xls|csv)$/i.test(name) ? '📊' :
+                    /\.(mp3|wav|ogg|flac|aac|m4a)$/i.test(name) ? '🎵' :
+                        /\.(mp4|avi|mov|mkv|webm|flv)$/i.test(name) ? '🎬' :
+                            /\.(zip|tar|gz|7z|bz2|rar)$/i.test(name) ? '📦' : '📁';
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function ConvertPage() {
     const [isDragging, setIsDragging] = useState(false);
     const [files, setFiles] = useState([]);
-    const [fromFmt, setFromFmt] = useState('JPG');
     const [toFmt, setToFmt] = useState('PNG');
-    const [quality, setQuality] = useState('high');
-    const [converting, setConverting] = useState(false);
+    const [serverOnline, setServerOnline] = useState(null);
     const fileRef = useRef(null);
 
-    const allFormats = FORMAT_GROUPS.flatMap(g => g.formats);
+    // Check server health on mount
+    useState(() => {
+        fetch('/api/health')
+            .then(r => r.json())
+            .then(() => setServerOnline(true))
+            .catch(() => setServerOnline(false));
+    });
 
-    const addFiles = (newFiles) =>
-        setFiles(prev => [
-            ...prev,
-            ...Array.from(newFiles).map(f => ({
-                id: `${f.name}-${Date.now()}-${Math.random()}`,
-                file: f, name: f.name, size: f.size, status: 'ready', progress: 0,
-            })),
-        ]);
+    // ── File management ────────────────────────────────────────────────────────
+    const addFiles = useCallback((rawFiles) => {
+        const newEntries = Array.from(rawFiles).map(f => ({
+            id: `${f.name}-${Date.now()}-${Math.random()}`,
+            file: f,
+            name: f.name,
+            size: f.size,
+            status: 'ready',     // ready | uploading | converting | done | error
+            progress: 0,
+            error: null,
+            result: null,        // { downloadUrl, outputSize, outputFile }
+        }));
+        setFiles(prev => [...prev, ...newEntries]);
+    }, []);
 
+    const updateFile = useCallback((id, patch) =>
+        setFiles(prev => prev.map(f => f.id === id ? { ...f, ...patch } : f)), []);
+
+    const removeFile = useCallback(id =>
+        setFiles(prev => prev.filter(f => f.id !== id)), []);
+
+    // ── Drop zone ──────────────────────────────────────────────────────────────
     const handleDrop = (e) => {
         e.preventDefault(); setIsDragging(false);
         addFiles(e.dataTransfer.files);
     };
 
-    const fmtSize = b => b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(1)} KB` : `${(b / 1048576).toFixed(2)} MB`;
-
-    const handleConvert = () => {
-        if (!files.length) return;
-        setConverting(true);
-        const ids = files.map(f => f.id);
-        let step = 0;
-        const iv = setInterval(() => {
-            step++;
-            setFiles(prev => prev.map(f => ids.includes(f.id) ? { ...f, status: 'converting', progress: Math.min(step * 10, 100) } : f));
-            if (step >= 10) {
-                clearInterval(iv);
-                setFiles(prev => prev.map(f => ids.includes(f.id) ? { ...f, status: 'done', progress: 100 } : f));
-                setConverting(false);
-            }
-        }, 220);
+    // ── Convert single file ────────────────────────────────────────────────────
+    const convertOne = async (entry) => {
+        updateFile(entry.id, { status: 'uploading', progress: 0, error: null });
+        try {
+            const result = await convertFile({
+                file: entry.file,
+                toFmt,
+                onProgress: pct => updateFile(entry.id, { progress: pct, status: pct < 100 ? 'uploading' : 'converting' }),
+            });
+            updateFile(entry.id, { status: 'done', progress: 100, result });
+        } catch (err) {
+            updateFile(entry.id, { status: 'error', error: err.message });
+        }
     };
 
-    const swap = () => { setFromFmt(toFmt); setToFmt(fromFmt); };
+    // ── Convert all ────────────────────────────────────────────────────────────
+    const handleConvertAll = async () => {
+        const ready = files.filter(f => f.status === 'ready' || f.status === 'error');
+        if (!ready.length) return;
+        // Convert in parallel (cap at 5)
+        const chunks = [];
+        for (let i = 0; i < ready.length; i += 5) chunks.push(ready.slice(i, i + 5));
+        for (const chunk of chunks) await Promise.all(chunk.map(convertOne));
+    };
 
-    const statusColor = { ready: 'var(--clr-text-muted)', converting: 'var(--clr-warning)', done: 'var(--clr-success)' };
-    const statusLabel = { ready: 'Ready', converting: 'Converting…', done: '✓ Done' };
+    // ── Download all done ──────────────────────────────────────────────────────
+    const downloadAll = () => {
+        files.filter(f => f.status === 'done' && f.result).forEach((f, i) => {
+            setTimeout(() => downloadFile(f.result.downloadUrl, f.result.outputFile), i * 300);
+        });
+    };
+
+    // ── Status helpers ─────────────────────────────────────────────────────────
+    const readyCount = files.filter(f => f.status === 'ready').length;
+    const convertingCount = files.filter(f => f.status === 'uploading' || f.status === 'converting').length;
+    const doneCount = files.filter(f => f.status === 'done').length;
+    const errorCount = files.filter(f => f.status === 'error').length;
+    const isConverting = convertingCount > 0;
+    const allDone = files.length > 0 && doneCount === files.length;
+
+    const statusColor = { ready: 'var(--clr-text-muted)', uploading: 'var(--clr-accent)', converting: 'var(--clr-warning)', done: 'var(--clr-success)', error: 'var(--clr-danger)' };
+    const statusLabel = { ready: 'Ready', uploading: 'Uploading…', converting: 'Converting…', done: '✓ Done', error: '✗ Failed' };
 
     return (
         <main className="convert-page">
@@ -73,46 +120,42 @@ export default function ConvertPage() {
                     <h2 className="convert-page__title">File Converter</h2>
                     <p className="convert-page__sub">Upload files, choose your target format, and convert instantly</p>
                 </div>
+                {/* Server status pill */}
+                <div className={`server-status ${serverOnline === true ? 'server-status--online' : serverOnline === false ? 'server-status--offline' : 'server-status--checking'}`}>
+                    <span className="server-status__dot" />
+                    {serverOnline === true ? 'Server Online' : serverOnline === false ? 'Server Offline' : 'Connecting…'}
+                </div>
             </div>
 
             <div className="convert-page__body">
-                {/* Left: Controls + Drop Zone */}
+                {/* ── Left: Controls + Drop Zone ── */}
                 <div className="convert-page__left">
 
-                    {/* Format Selector */}
+                    {/* Output Format Selector */}
                     <div className="format-selector glass-card">
-                        <div className="format-selector__slot">
-                            <label className="format-selector__label">From</label>
-                            <select className="format-selector__select" value={fromFmt} onChange={e => setFromFmt(e.target.value)}>
-                                {allFormats.map(f => <option key={f}>{f}</option>)}
-                            </select>
-                        </div>
-                        <button className="format-selector__swap" onClick={swap} title="Swap formats">⇄</button>
-                        <div className="format-selector__slot">
-                            <label className="format-selector__label">To</label>
-                            <select className="format-selector__select" value={toFmt} onChange={e => setToFmt(e.target.value)}>
-                                {allFormats.map(f => <option key={f}>{f}</option>)}
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Quality */}
-                    <div className="quality-selector glass-card">
-                        <p className="quality-selector__label">Output Quality</p>
-                        <div className="quality-selector__options">
-                            {QUALITY_OPTIONS.map(q => (
-                                <button
-                                    key={q.id}
-                                    className={`quality-option ${quality === q.id ? 'quality-option--active' : ''}`}
-                                    onClick={() => setQuality(q.id)}
-                                >
-                                    <span className="quality-option__icon">{q.icon}</span>
-                                    <span className="quality-option__name">{q.label}</span>
-                                    <span className="quality-option__desc">{q.desc}</span>
-                                </button>
+                        <p className="format-selector__heading">Convert To</p>
+                        <div className="format-selector__groups">
+                            {FORMAT_GROUPS.map(g => (
+                                <div key={g.group} className="format-selector__group">
+                                    <span className="format-selector__group-label" style={{ color: g.color }}>{g.group}</span>
+                                    <div className="format-selector__chips">
+                                        {g.formats.map(f => (
+                                            <button
+                                                key={f}
+                                                className={`fmt-chip ${toFmt === f ? 'fmt-chip--active' : ''}`}
+                                                style={toFmt === f ? { borderColor: g.color, color: g.color, background: `${g.color}18` } : {}}
+                                                onClick={() => setToFmt(f)}
+                                            >
+                                                {f}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     </div>
+
+
 
                     {/* Drop Zone */}
                     <div
@@ -124,11 +167,13 @@ export default function ConvertPage() {
                         role="button" tabIndex={0}
                         onKeyDown={e => e.key === 'Enter' && fileRef.current?.click()}
                     >
-                        <input ref={fileRef} type="file" multiple className="convert-dropzone__input"
-                            onChange={e => addFiles(e.target.files)} />
+                        <input
+                            ref={fileRef} type="file" multiple className="convert-dropzone__input"
+                            onChange={e => addFiles(e.target.files)}
+                        />
                         <div className="convert-dropzone__content">
                             <div className="convert-dropzone__icon">
-                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                                <svg width="42" height="42" viewBox="0 0 24 24" fill="none">
                                     <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="url(#cpGrad)" strokeWidth="1.8" strokeLinecap="round" />
                                     <polyline points="17,8 12,3 7,8" stroke="url(#cpGrad)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                                     <line x1="12" y1="3" x2="12" y2="15" stroke="url(#cpGrad)" strokeWidth="1.8" strokeLinecap="round" />
@@ -142,18 +187,26 @@ export default function ConvertPage() {
                             <p className="convert-dropzone__headline">
                                 {isDragging ? 'Drop to upload' : 'Drag & drop or click to browse'}
                             </p>
-                            <p className="convert-dropzone__sub">Max 500 MB per file · All major formats supported</p>
+                            <p className="convert-dropzone__sub">Max 500 MB per file · Images, Docs, Spreadsheets, Archives</p>
                         </div>
                     </div>
                 </div>
 
-                {/* Right: File Queue */}
+                {/* ── Right: File Queue ── */}
                 <div className="convert-page__right">
                     <div className="file-queue glass-card">
                         <div className="file-queue__header">
-                            <h3 className="file-queue__title">File Queue</h3>
+                            <h3 className="file-queue__title">
+                                File Queue
+                                {files.length > 0 && gaugePill(readyCount, convertingCount, doneCount, errorCount)}
+                            </h3>
                             {files.length > 0 && (
-                                <button className="file-queue__clear" onClick={() => setFiles([])}>Clear</button>
+                                <div className="file-queue__header-btns">
+                                    {doneCount > 0 && (
+                                        <button className="fq-btn fq-btn--dl" onClick={downloadAll} title="Download all done">⬇ All</button>
+                                    )}
+                                    <button className="fq-btn fq-btn--clear" onClick={() => setFiles([])}>Clear</button>
+                                </div>
                             )}
                         </div>
 
@@ -161,47 +214,76 @@ export default function ConvertPage() {
                             <div className="file-queue__empty">
                                 <span className="file-queue__empty-icon">📂</span>
                                 <p>No files added yet</p>
-                                <p>Upload files from the left panel</p>
+                                <p>Drop files or click browse on the left</p>
                             </div>
                         ) : (
                             <div className="file-queue__list">
                                 {files.map(f => (
-                                    <div key={f.id} className="fq-item">
-                                        <span className="fq-item__icon">
-                                            {f.name.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) ? '🖼' :
-                                                f.name.match(/\.pdf$/i) ? '📄' :
-                                                    f.name.match(/\.(mp3|wav|ogg|flac)$/i) ? '🎵' :
-                                                        f.name.match(/\.(mp4|avi|mov|mkv)$/i) ? '🎬' : '📁'}
-                                        </span>
+                                    <div key={f.id} className={`fq-item fq-item--${f.status}`}>
+                                        <span className="fq-item__icon">{FILE_ICON(f.name)}</span>
                                         <div className="fq-item__info">
-                                            <span className="fq-item__name">{f.name}</span>
+                                            <span className="fq-item__name" title={f.name}>{f.name}</span>
                                             <div className="fq-item__meta">
-                                                <span>{fmtSize(f.size)}</span>
-                                                {f.status === 'converting' && (
-                                                    <div className="fq-item__bar">
-                                                        <div className="fq-item__bar-fill" style={{ width: `${f.progress}%` }} />
-                                                    </div>
+                                                <span className="fq-item__size">{fmtSize(f.size)}</span>
+                                                {f.status === 'done' && f.result && (
+                                                    <span className="fq-item__arrow">→ {fmtSize(f.result.outputSize)}</span>
                                                 )}
-                                                <span style={{ color: statusColor[f.status] }}>{statusLabel[f.status]}</span>
+                                                <span className="fq-item__status" style={{ color: statusColor[f.status] }}>
+                                                    {statusLabel[f.status]}
+                                                </span>
+                                                {f.error && <span className="fq-item__error" title={f.error}>⚠ {f.error.slice(0, 40)}</span>}
                                             </div>
+                                            {(f.status === 'uploading' || f.status === 'converting') && (
+                                                <div className="fq-item__bar">
+                                                    <div className="fq-item__bar-fill" style={{ width: `${f.progress}%` }} />
+                                                </div>
+                                            )}
                                         </div>
-                                        <button className="fq-item__remove" onClick={() => setFiles(p => p.filter(x => x.id !== f.id))}>×</button>
+                                        <div className="fq-item__actions">
+                                            {f.status === 'done' && f.result && (
+                                                <button
+                                                    className="fq-item__action fq-item__action--dl"
+                                                    onClick={() => downloadFile(f.result.downloadUrl, f.result.outputFile)}
+                                                    title="Download"
+                                                >⬇</button>
+                                            )}
+                                            {(f.status === 'ready' || f.status === 'error') && (
+                                                <button
+                                                    className="fq-item__action fq-item__action--go"
+                                                    onClick={() => convertOne(f)}
+                                                    title="Convert this file"
+                                                >⇄</button>
+                                            )}
+                                            <button
+                                                className="fq-item__action fq-item__action--rm"
+                                                onClick={() => removeFile(f.id)}
+                                                title="Remove"
+                                            >×</button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
                         )}
 
                         {files.length > 0 && (
-                            <button
-                                id="convert-start-btn"
-                                className={`fq-convert-btn ${converting ? 'fq-convert-btn--loading' : ''}`}
-                                onClick={handleConvert}
-                                disabled={converting || files.every(f => f.status === 'done')}
-                            >
-                                {converting ? <><span className="fq-spinner" />Converting…</>
-                                    : files.every(f => f.status === 'done') ? '✓ Complete — Download All'
-                                        : `⇄ Convert ${files.length} File${files.length !== 1 ? 's' : ''} → ${toFmt}`}
-                            </button>
+                            <div className="file-queue__footer">
+                                {allDone ? (
+                                    <button id="convert-start-btn" className="fq-convert-btn fq-convert-btn--done" onClick={downloadAll}>
+                                        ⬇ Download All ({doneCount} files) → {toFmt}
+                                    </button>
+                                ) : (
+                                    <button
+                                        id="convert-start-btn"
+                                        className={`fq-convert-btn ${isConverting ? 'fq-convert-btn--loading' : ''}`}
+                                        onClick={handleConvertAll}
+                                        disabled={isConverting || readyCount === 0}
+                                    >
+                                        {isConverting
+                                            ? <><span className="fq-spinner" /> Converting {convertingCount} file{convertingCount > 1 ? 's' : ''}…</>
+                                            : `⇄ Convert ${readyCount > 0 ? readyCount : files.length} File${files.length !== 1 ? 's' : ''} → ${toFmt}`}
+                                    </button>
+                                )}
+                            </div>
                         )}
                     </div>
 
@@ -214,7 +296,13 @@ export default function ConvertPage() {
                                     <span className="sf-group__name" style={{ color: g.color }}>{g.group}</span>
                                     <div className="sf-group__tags">
                                         {g.formats.map(f => (
-                                            <span key={f} className="sf-tag" style={{ borderColor: `${g.color}30`, color: g.color, background: `${g.color}10` }}>{f}</span>
+                                            <button
+                                                key={f}
+                                                className="sf-tag"
+                                                style={{ borderColor: `${g.color}30`, color: g.color, background: `${g.color}10` }}
+                                                onClick={() => setToFmt(f)}
+                                                title={`Set target to ${f}`}
+                                            >{f}</button>
                                         ))}
                                     </div>
                                 </div>
@@ -224,5 +312,17 @@ export default function ConvertPage() {
                 </div>
             </div>
         </main>
+    );
+}
+
+// Gauge pill helper
+function gaugePill(ready, converting, done, error) {
+    return (
+        <div className="fq-gauge">
+            {ready > 0 && <span className="fq-gauge__item fq-gauge__item--ready">{ready} ready</span>}
+            {converting > 0 && <span className="fq-gauge__item fq-gauge__item--conv">{converting} converting</span>}
+            {done > 0 && <span className="fq-gauge__item fq-gauge__item--done">{done} done</span>}
+            {error > 0 && <span className="fq-gauge__item fq-gauge__item--err">{error} failed</span>}
+        </div>
     );
 }
