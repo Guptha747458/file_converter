@@ -41,7 +41,7 @@
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-display: 'Space Grotesk', sans-serif;
 
-  /* Spacing */
+  /* Spacing — fluid scale */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 16px;
@@ -69,6 +69,10 @@
   --duration-fast: 150ms;
   --duration-med: 250ms;
   --duration-slow: 400ms;
+
+  /* Sidebar width tokens (used across files) */
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 72px;
 }
 
 /* ---- Light Mode Overrides ---- */
@@ -118,6 +122,8 @@
 
 html {
   scroll-behavior: smooth;
+  /* Prevent font scaling on iOS rotation */
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -126,6 +132,7 @@ body {
   color: var(--clr-text-primary);
   line-height: 1.6;
   min-height: 100vh;
+  min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -134,27 +141,20 @@ body {
 
 #root {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
 }
 
 /* ---- Scrollbar Styling ---- */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--clr-bg-surface); }
+::-webkit-scrollbar-thumb { background: var(--clr-primary); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--clr-primary-light); }
 
-::-webkit-scrollbar-track {
-  background: var(--clr-bg-surface);
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--clr-primary);
-  border-radius: var(--radius-full);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--clr-primary-light);
+/* Thin scrollbar on mobile — avoids layout jump */
+@media (max-width: 640px) {
+  ::-webkit-scrollbar { width: 3px; }
 }
 
 /* ---- Selection ---- */
@@ -180,71 +180,49 @@ body {
   transition: background-color 350ms var(--ease-smooth), border-color 350ms var(--ease-smooth);
 }
 
+/* ---- Utility: Touch-optimised button base ---- */
+.btn-touch {
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ---- Keyframe Animations ---- */
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 @keyframes shimmer {
-  0% {
-    background-position: -200% center;
-  }
-
-  100% {
-    background-position: 200% center;
-  }
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
 }
 
 @keyframes pulse-glow {
-
-  0%,
-  100% {
-    box-shadow: 0 0 16px var(--clr-primary-glow);
-  }
-
-  50% {
-    box-shadow: 0 0 40px var(--clr-primary-glow), 0 0 80px rgba(124, 92, 252, 0.15);
-  }
+  0%, 100% { box-shadow: 0 0 16px var(--clr-primary-glow); }
+  50%       { box-shadow: 0 0 40px var(--clr-primary-glow), 0 0 80px rgba(124, 92, 252, 0.15); }
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 @keyframes float {
-
-  0%,
-  100% {
-    transform: translateY(0px);
-  }
-
-  50% {
-    transform: translateY(-8px);
-  }
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
 }
 
 @keyframes progress-anim {
-  from {
-    width: 0%;
-  }
+  from { width: 0%; }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
 }

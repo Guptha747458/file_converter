@@ -1,28 +1,44 @@
 /* ============================================================
-   Dashboard Page Layout
+   Dashboard Page Layout — Mobile-first Responsive
    ============================================================ */
 
 .dashboard {
     flex: 1;
-    padding: var(--space-xl);
+    padding: var(--space-md);
     display: flex;
     flex-direction: column;
-    gap: var(--space-xl);
+    gap: var(--space-md);
     position: relative;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
 }
 
-/* Ambient background glow */
+@media (min-width: 640px) {
+    .dashboard { padding: var(--space-lg); gap: var(--space-lg); }
+}
+
+@media (min-width: 900px) {
+    .dashboard { padding: var(--space-xl); gap: var(--space-xl); }
+}
+
+/* Ambient background glow — desktop only */
 .dashboard__bg-glow {
-    position: fixed;
-    top: 0;
-    left: 260px;
-    right: 0;
-    height: 50vh;
-    pointer-events: none;
-    background: var(--grad-bg);
-    z-index: 0;
+    display: none;
+}
+
+@media (min-width: 900px) {
+    .dashboard__bg-glow {
+        display: block;
+        position: fixed;
+        top: 0;
+        left: var(--sidebar-width, 260px);
+        right: 0;
+        height: 50vh;
+        pointer-events: none;
+        background: var(--grad-bg);
+        z-index: 0;
+    }
 }
 
 .dashboard__section {
@@ -31,42 +47,75 @@
     animation: fadeInUp var(--duration-slow) var(--ease-smooth) both;
 }
 
-/* Main 2-column grid for converter + activity */
+/* ── Main 2-col grid for converter + activity ─────────────── */
 .dashboard__main-grid {
-    display: grid;
-    grid-template-columns: 1fr 400px;
-    gap: var(--space-xl);
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
 }
 
-@media (max-width: 1200px) {
+@media (min-width: 640px) {
+    .dashboard__main-grid { gap: var(--space-lg); }
+}
+
+@media (min-width: 1200px) {
     .dashboard__main-grid {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: 1fr 380px;
+        gap: var(--space-xl);
+        align-items: start;
+    }
+}
+
+@media (min-width: 1400px) {
+    .dashboard__main-grid {
+        grid-template-columns: 1fr 420px;
     }
 }
 
 .dashboard__primary {
-    padding: var(--space-xl);
+    padding: var(--space-md);
+}
+
+@media (min-width: 640px) {
+    .dashboard__primary { padding: var(--space-lg); }
+}
+
+@media (min-width: 900px) {
+    .dashboard__primary { padding: var(--space-xl); }
 }
 
 .dashboard__secondary {
-    padding: var(--space-lg);
+    padding: var(--space-md);
 }
 
-/* ---- Tips Banner ---- */
+@media (min-width: 640px) {
+    .dashboard__secondary { padding: var(--space-lg); }
+}
+
+/* ── Tips Banner ─────────────────────────────────────────── */
 .tips-banner {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-xl);
-    padding: var(--space-lg) var(--space-xl);
+    flex-direction: column;
+    gap: var(--space-md);
+    padding: var(--space-md);
     border-radius: var(--radius-xl);
     background: linear-gradient(135deg,
-            rgba(124, 92, 252, 0.12) 0%,
-            rgba(0, 212, 255, 0.06) 100%);
+        rgba(124, 92, 252, 0.12) 0%,
+        rgba(0, 212, 255, 0.06) 100%);
     border: 1px solid rgba(124, 92, 252, 0.25);
     position: relative;
     overflow: hidden;
+}
+
+@media (min-width: 640px) {
+    .tips-banner {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-xl);
+        padding: var(--space-lg) var(--space-xl);
+    }
 }
 
 .tips-banner::before {
@@ -85,32 +134,40 @@
     align-items: flex-start;
     gap: var(--space-md);
     flex: 1;
+    min-width: 0;
 }
 
 .tips-banner__icon {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     line-height: 1;
     flex-shrink: 0;
     animation: pulse-glow 2s ease-in-out infinite;
 }
 
+@media (min-width: 480px) { .tips-banner__icon { font-size: 1.5rem; } }
+
 .tips-banner__title {
     font-family: var(--font-display);
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     font-weight: 700;
     color: var(--clr-primary-light);
     margin-bottom: 4px;
 }
 
+@media (min-width: 480px) { .tips-banner__title { font-size: 0.9rem; } }
+
 .tips-banner__text {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     color: var(--clr-text-secondary);
     line-height: 1.6;
 }
 
+@media (min-width: 480px) { .tips-banner__text { font-size: 0.8rem; } }
+
 .tips-banner__cta {
     flex-shrink: 0;
-    padding: 10px 20px;
+    width: 100%;
+    padding: 11px 20px;
     background: var(--grad-primary);
     border: none;
     border-radius: var(--radius-lg);
@@ -122,24 +179,15 @@
     white-space: nowrap;
     transition: all var(--duration-med) var(--ease-smooth);
     box-shadow: 0 4px 16px rgba(124, 92, 252, 0.35);
-    position: relative;
+    touch-action: manipulation;
+    min-height: 44px;
+}
+
+@media (min-width: 640px) {
+    .tips-banner__cta { width: auto; }
 }
 
 .tips-banner__cta:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 28px rgba(124, 92, 252, 0.5);
-}
-
-@media (max-width: 700px) {
-    .dashboard {
-        padding: var(--space-md);
-    }
-
-    .tips-banner {
-        flex-direction: column;
-    }
-
-    .dashboard__bg-glow {
-        left: 0;
-    }
 }

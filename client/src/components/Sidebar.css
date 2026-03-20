@@ -1,12 +1,13 @@
 /* ============================================================
-   Sidebar Component
+   Sidebar Component — Mobile-first Responsive
    ============================================================ */
 
-
+/* ── Base sidebar (desktop) ─────────────────────────────── */
 .sidebar {
-    width: 260px;
-    min-width: 260px;
+    width: var(--sidebar-width, 260px);
+    min-width: var(--sidebar-width, 260px);
     height: 100vh;
+    height: 100dvh;
     position: sticky;
     top: 0;
     display: flex;
@@ -15,33 +16,61 @@
     padding: var(--space-lg);
     background: var(--clr-bg-surface);
     border-right: 1px solid var(--clr-border);
-    transition: width var(--duration-med) var(--ease-smooth),
+    transition:
+        width var(--duration-med) var(--ease-smooth),
         min-width var(--duration-med) var(--ease-smooth),
+        transform var(--duration-med) var(--ease-smooth),
         background-color 350ms var(--ease-smooth),
         border-color 350ms var(--ease-smooth);
     overflow-y: auto;
+    overflow-x: hidden;
     z-index: 100;
+    flex-shrink: 0;
+    scrollbar-width: none;
 }
 
+.sidebar::-webkit-scrollbar { display: none; }
+
+/* ── Mobile: sidebar slides in from the left ─────────────── */
+@media (max-width: 899px) {
+    .sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        height: 100dvh;
+        transform: translateX(-100%);
+        box-shadow: var(--shadow-lg);
+        z-index: 200;
+    }
+
+    .sidebar--mobile-open {
+        transform: translateX(0);
+    }
+}
+
+/* ── Collapsed state (desktop only) ─────────────────────── */
 .sidebar--collapsed {
-    width: 72px;
-    min-width: 72px;
+    width: var(--sidebar-collapsed-width, 72px);
+    min-width: var(--sidebar-collapsed-width, 72px);
     padding: var(--space-lg) var(--space-sm);
     align-items: center;
 }
 
-/* ---- Logo ---- */
+/* ── Logo ────────────────────────────────────────────────── */
 .sidebar__logo {
     display: flex;
     align-items: center;
     gap: var(--space-sm);
     padding: var(--space-sm) 0;
     position: relative;
+    flex-shrink: 0;
 }
 
 .sidebar__logo-icon {
     width: 44px;
     height: 44px;
+    min-width: 44px;
     border-radius: var(--radius-md);
     background: linear-gradient(135deg, rgba(124, 92, 252, 0.2), rgba(0, 212, 255, 0.1));
     border: 1px solid var(--clr-border);
@@ -81,30 +110,36 @@
     right: -8px;
     top: 50%;
     transform: translateY(-50%);
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     background: var(--clr-bg-elevated);
     border: 1px solid var(--clr-border);
     border-radius: var(--radius-full);
     color: var(--clr-text-secondary);
     font-size: 14px;
     cursor: pointer;
-    display: flex;
+    display: none; /* hidden on mobile, shown on desktop */
     align-items: center;
     justify-content: center;
     transition: all var(--duration-fast) var(--ease-smooth);
     z-index: 10;
     padding: 0;
     line-height: 1;
+    touch-action: manipulation;
+}
+
+@media (min-width: 900px) {
+    .sidebar__collapse-btn { display: flex; }
 }
 
 .sidebar__collapse-btn:hover {
     background: var(--clr-primary);
     color: white;
     border-color: var(--clr-primary);
+    box-shadow: 0 0 12px var(--clr-primary-glow);
 }
 
-/* ---- Nav ---- */
+/* ── Nav ─────────────────────────────────────────────────── */
 .sidebar__nav {
     display: flex;
     flex-direction: column;
@@ -121,6 +156,7 @@
     margin-bottom: var(--space-xs);
     display: block;
     padding: 0 var(--space-sm);
+    white-space: nowrap;
 }
 
 .sidebar__nav-item {
@@ -128,7 +164,7 @@
     align-items: center;
     gap: var(--space-sm);
     width: 100%;
-    padding: 10px var(--space-sm);
+    padding: 11px var(--space-sm);
     border-radius: var(--radius-md);
     background: transparent;
     border: 1px solid transparent;
@@ -140,6 +176,9 @@
     text-align: left;
     position: relative;
     transition: all var(--duration-fast) var(--ease-smooth);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    min-height: 44px;
 }
 
 .sidebar__nav-item:hover {
@@ -169,6 +208,8 @@
 .sidebar__nav-label {
     flex: 1;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .sidebar__nav-indicator {
@@ -180,11 +221,11 @@
     flex-shrink: 0;
 }
 
-/* ---- Formats ---- */
+/* ── Format list ─────────────────────────────────────────── */
 .sidebar__formats {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 .sidebar__format-item {
@@ -206,23 +247,28 @@
     flex: 1;
     font-size: 0.8rem;
     color: var(--clr-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .sidebar__format-count {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
     color: var(--clr-text-muted);
     background: var(--clr-bg-elevated);
     padding: 2px 7px;
     border-radius: var(--radius-full);
+    flex-shrink: 0;
 }
 
-/* ---- Storage ---- */
+/* ── Storage bar ─────────────────────────────────────────── */
 .sidebar__storage {
     padding: var(--space-md);
     background: rgba(124, 92, 252, 0.06);
     border: 1px solid var(--clr-border);
     border-radius: var(--radius-md);
+    flex-shrink: 0;
 }
 
 .sidebar__storage-header {
@@ -230,6 +276,12 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: var(--space-sm);
+}
+
+.sidebar__storage-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--clr-text-secondary);
 }
 
 .sidebar__storage-pct {
@@ -258,7 +310,7 @@
     color: var(--clr-text-muted);
 }
 
-/* ---- User ---- */
+/* ── User card ───────────────────────────────────────────── */
 .sidebar__user {
     display: flex;
     align-items: center;
@@ -269,6 +321,8 @@
     background: rgba(255, 255, 255, 0.02);
     cursor: pointer;
     transition: all var(--duration-fast) var(--ease-smooth);
+    flex-shrink: 0;
+    touch-action: manipulation;
 }
 
 .sidebar__user:hover {
@@ -303,10 +357,33 @@
     font-weight: 600;
     color: var(--clr-text-primary);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .sidebar__user-plan {
     font-size: 0.68rem;
     color: var(--clr-primary-light);
     white-space: nowrap;
+}
+
+/* ── Mobile hamburger toggle (add in Topbar) ─────────────── */
+.sidebar__mobile-toggle {
+    display: none;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--clr-border);
+    color: var(--clr-text-primary);
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+    touch-action: manipulation;
+}
+
+@media (max-width: 899px) {
+    .sidebar__mobile-toggle { display: flex; }
 }
