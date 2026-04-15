@@ -22,11 +22,18 @@
 }
 
 @media (min-width: 640px) {
-    .topbar { padding: var(--space-md) var(--space-lg); gap: var(--space-md); }
+    .topbar {
+        padding: var(--space-md) var(--space-lg);
+        gap: var(--space-md);
+    }
 }
 
 @media (min-width: 900px) {
-    .topbar { padding: var(--space-md) var(--space-xl); gap: var(--space-lg); min-height: 60px; }
+    .topbar {
+        padding: var(--space-md) var(--space-xl);
+        gap: var(--space-lg);
+        min-height: 60px;
+    }
 }
 
 /* ── Left ─────────────────────────────────────────────────── */
@@ -46,8 +53,17 @@
     text-overflow: ellipsis;
 }
 
-@media (min-width: 480px) { .topbar__page-title { font-size: 1.15rem; } }
-@media (min-width: 640px) { .topbar__page-title { font-size: 1.3rem; } }
+@media (min-width: 480px) {
+    .topbar__page-title {
+        font-size: 1.15rem;
+    }
+}
+
+@media (min-width: 640px) {
+    .topbar__page-title {
+        font-size: 1.3rem;
+    }
+}
 
 .topbar__page-sub {
     font-size: 0.7rem;
@@ -68,7 +84,10 @@
 }
 
 @media (min-width: 1050px) {
-    .topbar__tools { display: flex; flex: 1; }
+    .topbar__tools {
+        display: flex;
+        flex: 1;
+    }
 }
 
 .topbar__tool-btn {
@@ -89,7 +108,9 @@
     touch-action: manipulation;
 }
 
-[data-theme="light"] .topbar__tool-btn { background: rgba(0, 0, 0, 0.04); }
+[data-theme="light"] .topbar__tool-btn {
+    background: rgba(0, 0, 0, 0.04);
+}
 
 .topbar__tool-btn:hover {
     background: rgba(124, 92, 252, 0.15);
@@ -99,7 +120,10 @@
     box-shadow: 0 4px 12px rgba(124, 92, 252, 0.2);
 }
 
-.topbar__tool-icon { font-size: 14px; line-height: 1; }
+.topbar__tool-icon {
+    font-size: 14px;
+    line-height: 1;
+}
 
 /* ── Right section ───────────────────────────────────────── */
 .topbar__right {
@@ -109,7 +133,11 @@
     flex-shrink: 0;
 }
 
-@media (min-width: 480px) { .topbar__right { gap: var(--space-sm); } }
+@media (min-width: 480px) {
+    .topbar__right {
+        gap: var(--space-sm);
+    }
+}
 
 /* Search */
 .topbar__search {
@@ -123,12 +151,23 @@
     transition: all var(--duration-fast) var(--ease-smooth);
 }
 
-[data-theme="light"] .topbar__search { background: rgba(0, 0, 0, 0.04); }
+[data-theme="light"] .topbar__search {
+    background: rgba(0, 0, 0, 0.04);
+}
 
 @media (max-width: 479px) {
+
     /* On tiny screens, show only the icon if there's no value */
-    .topbar__search { padding: 7px; }
-    .topbar__search-input { width: 0; max-width: 0; padding: 0; }
+    .topbar__search {
+        padding: 7px;
+    }
+
+    .topbar__search-input {
+        width: 0;
+        max-width: 0;
+        padding: 0;
+    }
+
     .topbar__search:focus-within .topbar__search-input {
         width: 110px;
         max-width: 110px;
@@ -142,7 +181,10 @@
     box-shadow: 0 0 0 3px rgba(124, 92, 252, 0.15);
 }
 
-.topbar__search-icon { color: var(--clr-text-muted); flex-shrink: 0; }
+.topbar__search-icon {
+    color: var(--clr-text-muted);
+    flex-shrink: 0;
+}
 
 .topbar__search-input {
     background: transparent;
@@ -155,9 +197,15 @@
     transition: width var(--duration-med) var(--ease-smooth);
 }
 
-@media (min-width: 640px) { .topbar__search-input { width: 170px; } }
+@media (min-width: 640px) {
+    .topbar__search-input {
+        width: 170px;
+    }
+}
 
-.topbar__search-input::placeholder { color: var(--clr-text-muted); }
+.topbar__search-input::placeholder {
+    color: var(--clr-text-muted);
+}
 
 /* Icon buttons */
 .topbar__icon-btn {
@@ -177,7 +225,9 @@
     touch-action: manipulation;
 }
 
-[data-theme="light"] .topbar__icon-btn { background: rgba(0, 0, 0, 0.04); }
+[data-theme="light"] .topbar__icon-btn {
+    background: rgba(0, 0, 0, 0.04);
+}
 
 .topbar__icon-btn:hover {
     background: rgba(124, 92, 252, 0.12);
@@ -221,13 +271,21 @@
 }
 
 @media (min-width: 900px) {
-    .topbar__theme-label { display: inline; }
-    .topbar__theme-btn { padding: 0 14px; }
+    .topbar__theme-label {
+        display: inline;
+    }
+
+    .topbar__theme-btn {
+        padding: 0 14px;
+    }
 }
 
 /* Without label, make it square */
 @media (max-width: 899px) {
-    .topbar__theme-btn { width: 38px; padding: 0; }
+    .topbar__theme-btn {
+        width: 38px;
+        padding: 0;
+    }
 }
 
 .topbar__theme-btn--dark {

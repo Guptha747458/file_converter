@@ -1,12 +1,22 @@
 import { useState } from 'react';
+import { 
+    LayoutDashboard, 
+    RefreshCw, 
+    Layers, 
+    Clock, 
+    Settings, 
+    ChevronLeft, 
+    ChevronRight,
+    Box
+} from 'lucide-react';
 import './Sidebar.css';
 
 const navItems = [
-    { id: 'dashboard', icon: '⊞', label: 'Dashboard' },
-    { id: 'convert', icon: '⇄', label: 'Convert' },
-    { id: 'formats', icon: '◈', label: 'Formats' },
-    { id: 'history', icon: '◷', label: 'History' },
-    { id: 'settings', icon: '⚙', label: 'Settings' },
+    { id: 'dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard' },
+    { id: 'convert', icon: <RefreshCw size={20} />, label: 'Convert' },
+    { id: 'formats', icon: <Layers size={20} />, label: 'Formats' },
+    { id: 'history', icon: <Clock size={20} />, label: 'History' },
+    { id: 'settings', icon: <Settings size={20} />, label: 'Settings' },
 ];
 
 const formatBadges = [
@@ -24,19 +34,7 @@ export default function Sidebar({ activeNav, setActiveNav }) {
             {/* Logo */}
             <div className="sidebar__logo">
                 <div className="sidebar__logo-icon">
-                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                        <path d="M4 8L14 4L24 8V20L14 24L4 20V8Z" fill="url(#logoGrad)" opacity="0.15" />
-                        <path d="M4 8L14 4L24 8" stroke="url(#logoGrad)" strokeWidth="1.5" strokeLinejoin="round" />
-                        <path d="M14 4V24" stroke="url(#logoGrad)" strokeWidth="1.5" />
-                        <path d="M4 8V20L14 24L24 20V8" stroke="url(#logoGrad)" strokeWidth="1.5" strokeLinejoin="round" />
-                        <path d="M9 13L13 17L19 11" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                        <defs>
-                            <linearGradient id="logoGrad" x1="4" y1="4" x2="24" y2="24" gradientUnits="userSpaceOnUse">
-                                <stop stopColor="#7c5cfc" />
-                                <stop offset="1" stopColor="#00d4ff" />
-                            </linearGradient>
-                        </defs>
-                    </svg>
+                    <Box size={24} color="#7c5cfc" />
                 </div>
                 {!collapsed && (
                     <div className="sidebar__logo-text">
@@ -50,7 +48,7 @@ export default function Sidebar({ activeNav, setActiveNav }) {
                     aria-label="Toggle sidebar"
                     title={collapsed ? 'Expand' : 'Collapse'}
                 >
-                    {collapsed ? '›' : '‹'}
+                    {collapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
                 </button>
             </div>
 

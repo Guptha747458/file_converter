@@ -1,8 +1,30 @@
 import { useState } from 'react';
+import { 
+    Settings, 
+    RefreshCw, 
+    HardDrive, 
+    Bell, 
+    User, 
+    Zap, 
+    Save, 
+    Trash2, 
+    AlertTriangle, 
+    Download, 
+    Upload, 
+    RotateCcw,
+    Camera
+} from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import './SettingsPage.css';
 
-const SECTIONS = ['General', 'Conversion', 'Storage', 'Notifications', 'Account', 'Advanced'];
+const SECTIONS = [
+    { id: 'General', icon: Settings },
+    { id: 'Conversion', icon: RefreshCw },
+    { id: 'Storage', icon: HardDrive },
+    { id: 'Notifications', icon: Bell },
+    { id: 'Account', icon: User },
+    { id: 'Advanced', icon: Zap }
+];
 
 export default function SettingsPage() {
     const [activeSection, setActiveSection] = useState('General');
@@ -149,7 +171,7 @@ export default function SettingsPage() {
                     <Slider settingKey="storageLimit" label="Storage Limit" desc="Set your personal storage quota" min={1} max={100} unit="GB" />
                     <Toggle settingKey="clearOnExit" label="Clear Temp Files on Exit" desc="Remove temporary conversion files when closing" />
                     <div className="settings-divider" />
-                    <button className="danger-btn">🗑 Clear All History &amp; Files</button>
+                    <button className="danger-btn"><Trash2 size={16} style={{ marginRight: '8px' }} /> Clear All History &amp; Files</button>
                 </div>
             );
             case 'Notifications': return (
@@ -167,8 +189,12 @@ export default function SettingsPage() {
                 <div className="settings-group">
                     <div className="settings-group__title">Profile</div>
                     <div className="account-avatar-row">
-                        <div className="account-avatar">H</div>
-                        <button className="hist-btn hist-btn--outline" style={{ fontSize: '0.78rem' }}>Change Photo</button>
+                        <div className="account-avatar">
+                            <User size={32} />
+                        </div>
+                        <button className="hist-btn hist-btn--outline" style={{ fontSize: '0.78rem' }}>
+                            <Camera size={14} style={{ marginRight: '6px' }} /> Change Photo
+                        </button>
                     </div>
                     <div className="setting-row">
                         <div className="setting-row__info">
@@ -193,7 +219,7 @@ export default function SettingsPage() {
                         <span className="plan-badge">{settings.plan}</span>
                     </div>
                     <div className="settings-divider" />
-                    <button className="danger-btn">⚠ Delete Account</button>
+                    <button className="danger-btn"><AlertTriangle size={16} style={{ marginRight: '8px' }} /> Delete Account</button>
                 </div>
             );
             case 'Advanced': return (
@@ -208,17 +234,21 @@ export default function SettingsPage() {
                             <p className="setting-row__label">Export Settings</p>
                             <p className="setting-row__desc">Download all your preferences as a JSON file</p>
                         </div>
-                        <button className="hist-btn hist-btn--outline" style={{ fontSize: '0.78rem' }}>⬇ Export</button>
+                        <button className="hist-btn hist-btn--outline" style={{ fontSize: '0.78rem' }}>
+                            <Download size={14} style={{ marginRight: '6px' }} /> Export
+                        </button>
                     </div>
                     <div className="setting-row">
                         <div className="setting-row__info">
                             <p className="setting-row__label">Import Settings</p>
                             <p className="setting-row__desc">Restore preferences from a backup file</p>
                         </div>
-                        <button className="hist-btn hist-btn--outline" style={{ fontSize: '0.78rem' }}>⬆ Import</button>
+                        <button className="hist-btn hist-btn--outline" style={{ fontSize: '0.78rem' }}>
+                            <Upload size={14} style={{ marginRight: '6px' }} /> Import
+                        </button>
                     </div>
                     <div className="settings-divider" />
-                    <button className="danger-btn">↺ Reset All Settings to Default</button>
+                    <button className="danger-btn"><RotateCcw size={16} style={{ marginRight: '8px' }} /> Reset All Settings to Default</button>
                 </div>
             );
             default: return null;
@@ -239,10 +269,13 @@ export default function SettingsPage() {
                 <nav className="settings-nav glass-card">
                     {SECTIONS.map(s => (
                         <button
-                            key={s}
-                            className={`settings-nav__item ${activeSection === s ? 'settings-nav__item--active' : ''}`}
-                            onClick={() => setActiveSection(s)}
-                        >{s}</button>
+                            key={s.id}
+                            className={`settings-nav__item ${activeSection === s.id ? 'settings-nav__item--active' : ''}`}
+                            onClick={() => setActiveSection(s.id)}
+                        >
+                            <s.icon size={16} style={{ marginRight: '10px' }} />
+                            {s.id}
+                        </button>
                     ))}
                 </nav>
 
@@ -252,7 +285,9 @@ export default function SettingsPage() {
                     {renderSection()}
                     <div className="settings-content__footer">
                         <button className="hist-btn hist-btn--outline">Cancel</button>
-                        <button className="hist-btn hist-btn--primary">💾 Save Changes</button>
+                        <button className="hist-btn hist-btn--primary">
+                            <Save size={16} style={{ marginRight: '8px' }} /> Save Changes
+                        </button>
                     </div>
                 </div>
             </div>

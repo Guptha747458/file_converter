@@ -1,10 +1,19 @@
+import { 
+    Image as ImageIcon, 
+    FileText, 
+    Music, 
+    Video, 
+    Package, 
+    BookOpen,
+    ArrowRight
+} from 'lucide-react';
 import './FormatCards.css';
 
 const formats = [
     {
         id: 'fmt-images',
         label: 'Image Converter',
-        icon: '🖼',
+        type: 'image',
         desc: 'JPG, PNG, WEBP, GIF, AVIF, SVG, BMP and more',
         tag: '24 formats',
         color: '#7c5cfc',
@@ -13,7 +22,7 @@ const formats = [
     {
         id: 'fmt-docs',
         label: 'Document Converter',
-        icon: '📄',
+        type: 'doc',
         desc: 'PDF, DOCX, XLSX, PPTX, TXT, ODT and more',
         tag: '18 formats',
         color: '#00d4ff',
@@ -22,7 +31,7 @@ const formats = [
     {
         id: 'fmt-audio',
         label: 'Audio Converter',
-        icon: '🎵',
+        type: 'audio',
         desc: 'MP3, WAV, FLAC, AAC, OGG, M4A and more',
         tag: '15 formats',
         color: '#22d3a0',
@@ -31,7 +40,7 @@ const formats = [
     {
         id: 'fmt-video',
         label: 'Video Converter',
-        icon: '🎬',
+        type: 'video',
         desc: 'MP4, AVI, MOV, MKV, WEBM, FLV and more',
         tag: '12 formats',
         color: '#f59e0b',
@@ -40,7 +49,7 @@ const formats = [
     {
         id: 'fmt-archive',
         label: 'Archive Converter',
-        icon: '📦',
+        type: 'archive',
         desc: 'ZIP, TAR, GZ, 7Z, RAR, BZ2 and more',
         tag: '8 formats',
         color: '#f43f5e',
@@ -49,13 +58,22 @@ const formats = [
     {
         id: 'fmt-ebook',
         label: 'eBook Converter',
-        icon: '📚',
+        type: 'ebook',
         desc: 'EPUB, MOBI, AZW3, PDF, FB2 and more',
         tag: '10 formats',
         color: '#818cf8',
         gradient: 'linear-gradient(135deg, rgba(129,140,248,0.12), rgba(129,140,248,0.03))',
     },
 ];
+
+const ICON_MAP = {
+    image: <ImageIcon size={24} />,
+    doc: <FileText size={24} />,
+    audio: <Music size={24} />,
+    video: <Video size={24} />,
+    archive: <Package size={24} />,
+    ebook: <BookOpen size={24} />
+};
 
 export default function FormatCards() {
     return (
@@ -73,14 +91,16 @@ export default function FormatCards() {
                         style={{ background: f.gradient, animationDelay: `${i * 70}ms` }}
                     >
                         <div className="format-card__top">
-                            <span className="format-card__icon">{f.icon}</span>
+                            <span className="format-card__icon" style={{ color: f.color }}>{ICON_MAP[f.type]}</span>
                             <span className="format-card__tag" style={{ color: f.color, borderColor: `${f.color}30`, background: `${f.color}12` }}>
                                 {f.tag}
                             </span>
                         </div>
                         <p className="format-card__label" style={{ color: f.color }}>{f.label}</p>
                         <p className="format-card__desc">{f.desc}</p>
-                        <div className="format-card__arrow" style={{ color: f.color }}>→</div>
+                        <div className="format-card__arrow" style={{ color: f.color }}>
+                            <ArrowRight size={18} />
+                        </div>
                         <div className="format-card__glow" style={{ background: `radial-gradient(circle at 0% 100%, ${f.color}25, transparent 65%)` }} />
                     </button>
                 ))}

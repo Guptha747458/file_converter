@@ -1,3 +1,4 @@
+import { Zap, ArrowRight } from 'lucide-react';
 import StatsGrid from './StatsGrid';
 import DropZone from './DropZone';
 import RecentActivity from './RecentActivity';
@@ -37,7 +38,7 @@ export default function Dashboard({ onNavigate }) {
             <section className="dashboard__section">
                 <div className="tips-banner">
                     <div className="tips-banner__content">
-                        <span className="tips-banner__icon">⚡</span>
+                        <span className="tips-banner__icon"><Zap size={20} fill="currentColor" /></span>
                         <div>
                             <p className="tips-banner__title">Pro Tip</p>
                             <p className="tips-banner__text">
@@ -47,7 +48,7 @@ export default function Dashboard({ onNavigate }) {
                         </div>
                     </div>
                     <button id="try-batch-btn" className="tips-banner__cta" onClick={() => onNavigate?.('convert')}>
-                        Try Batch Convert →
+                        Try Batch Convert <ArrowRight size={16} style={{ marginLeft: '8px' }} />
                     </button>
                 </div>
             </section>

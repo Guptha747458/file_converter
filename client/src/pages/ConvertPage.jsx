@@ -1,4 +1,23 @@
 import { useState, useRef, useCallback } from 'react';
+import { 
+    Image as ImageIcon, 
+    FileText, 
+    FileSpreadsheet, 
+    Music, 
+    Video, 
+    Package, 
+    Folder, 
+    UploadCloud, 
+    FileCheck, 
+    AlertCircle, 
+    Download, 
+    RefreshCw, 
+    X, 
+    ArrowRight,
+    CheckCircle2,
+    XCircle,
+    Layout
+} from 'lucide-react';
 import { convertFile, convertBatch, downloadFile, fmtSize } from '../utils/api';
 import './ConvertPage.css';
 
@@ -13,16 +32,16 @@ const FORMAT_GROUPS = [
 
 const ALL_FORMATS = FORMAT_GROUPS.flatMap(g => g.formats);
 
-
-
-const FILE_ICON = name =>
-    /\.(jpg|jpeg|png|gif|webp|svg|avif|bmp|tiff)$/i.test(name) ? '🖼' :
-        /\.(pdf)$/i.test(name) ? '📄' :
-            /\.(docx|doc|odt|rtf)$/i.test(name) ? '📝' :
-                /\.(xlsx|xls|csv)$/i.test(name) ? '📊' :
-                    /\.(mp3|wav|ogg|flac|aac|m4a)$/i.test(name) ? '🎵' :
-                        /\.(mp4|avi|mov|mkv|webm|flv)$/i.test(name) ? '🎬' :
-                            /\.(zip|tar|gz|7z|bz2|rar)$/i.test(name) ? '📦' : '📁';
+const FILE_ICON = name => {
+    if (/\.(jpg|jpeg|png|gif|webp|svg|avif|bmp|tiff)$/i.test(name)) return <ImageIcon size={20} />;
+    if (/\.(pdf)$/i.test(name)) return <FileText size={20} />;
+    if (/\.(docx|doc|odt|rtf)$/i.test(name)) return <FileCheck size={20} />;
+    if (/\.(xlsx|xls|csv)$/i.test(name)) return <FileSpreadsheet size={20} />;
+    if (/\.(mp3|wav|ogg|flac|aac|m4a)$/i.test(name)) return <Music size={20} />;
+    if (/\.(mp4|avi|mov|mkv|webm|flv)$/i.test(name)) return <Video size={20} />;
+    if (/\.(zip|tar|gz|7z|bz2|rar)$/i.test(name)) return <Package size={20} />;
+    return <Folder size={20} />;
+};
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function ConvertPage() {
@@ -108,7 +127,13 @@ export default function ConvertPage() {
     const allDone = files.length > 0 && doneCount === files.length;
 
     const statusColor = { ready: 'var(--clr-text-muted)', uploading: 'var(--clr-accent)', converting: 'var(--clr-warning)', done: 'var(--clr-success)', error: 'var(--clr-danger)' };
-    const statusLabel = { ready: 'Ready', uploading: 'Uploading…', converting: 'Converting…', done: '✓ Done', error: '✗ Failed' };
+    const statusLabel = { 
+        ready: 'Ready', 
+        uploading: 'Uploading…', 
+        converting: 'Converting…', 
+        done: <><CheckCircle2 size={14} style={{ marginRight: '4px' }} /> Done</>, 
+        error: <><XCircle size={14} style={{ marginRight: '4px' }} /> Failed</> 
+    };
 
     return (
         <main className="convert-page">
@@ -155,8 +180,6 @@ export default function ConvertPage() {
                         </div>
                     </div>
 
-
-
                     {/* Drop Zone */}
                     <div
                         className={`convert-dropzone ${isDragging ? 'convert-dropzone--dragging' : ''}`}
@@ -173,16 +196,7 @@ export default function ConvertPage() {
                         />
                         <div className="convert-dropzone__content">
                             <div className="convert-dropzone__icon">
-                                <svg width="42" height="42" viewBox="0 0 24 24" fill="none">
-                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="url(#cpGrad)" strokeWidth="1.8" strokeLinecap="round" />
-                                    <polyline points="17,8 12,3 7,8" stroke="url(#cpGrad)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                                    <line x1="12" y1="3" x2="12" y2="15" stroke="url(#cpGrad)" strokeWidth="1.8" strokeLinecap="round" />
-                                    <defs>
-                                        <linearGradient id="cpGrad" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
-                                            <stop stopColor="#7c5cfc" /><stop offset="1" stopColor="#00d4ff" />
-                                        </linearGradient>
-                                    </defs>
-                                </svg>
+                                <UploadCloud size={42} color="#7c5cfc" />
                             </div>
                             <p className="convert-dropzone__headline">
                                 {isDragging ? 'Drop to upload' : 'Drag & drop or click to browse'}
@@ -203,7 +217,7 @@ export default function ConvertPage() {
                             {files.length > 0 && (
                                 <div className="file-queue__header-btns">
                                     {doneCount > 0 && (
-                                        <button className="fq-btn fq-btn--dl" onClick={downloadAll} title="Download all done">⬇ All</button>
+                                        <button className="fq-btn fq-btn--dl" onClick={downloadAll} title="Download all done"><Download size={14} style={{ marginRight: '4px' }} /> All</button>
                                     )}
                                     <button className="fq-btn fq-btn--clear" onClick={() => setFiles([])}>Clear</button>
                                 </div>
@@ -212,7 +226,7 @@ export default function ConvertPage() {
 
                         {files.length === 0 ? (
                             <div className="file-queue__empty">
-                                <span className="file-queue__empty-icon">📂</span>
+                                <span className="file-queue__empty-icon"><Folder size={48} opacity={0.5} /></span>
                                 <p>No files added yet</p>
                                 <p>Drop files or click browse on the left</p>
                             </div>
@@ -226,12 +240,12 @@ export default function ConvertPage() {
                                             <div className="fq-item__meta">
                                                 <span className="fq-item__size">{fmtSize(f.size)}</span>
                                                 {f.status === 'done' && f.result && (
-                                                    <span className="fq-item__arrow">→ {fmtSize(f.result.outputSize)}</span>
+                                                    <span className="fq-item__arrow"><ArrowRight size={12} style={{ margin: '0 4px' }} /> {fmtSize(f.result.outputSize)}</span>
                                                 )}
-                                                <span className="fq-item__status" style={{ color: statusColor[f.status] }}>
+                                                <span className="fq-item__status" style={{ color: statusColor[f.status], display: 'flex', alignItems: 'center' }}>
                                                     {statusLabel[f.status]}
                                                 </span>
-                                                {f.error && <span className="fq-item__error" title={f.error}>⚠ {f.error.slice(0, 40)}</span>}
+                                                {f.error && <span className="fq-item__error" title={f.error}><AlertCircle size={12} style={{ marginRight: '4px' }} /> {f.error.slice(0, 40)}</span>}
                                             </div>
                                             {(f.status === 'uploading' || f.status === 'converting') && (
                                                 <div className="fq-item__bar">
@@ -245,20 +259,20 @@ export default function ConvertPage() {
                                                     className="fq-item__action fq-item__action--dl"
                                                     onClick={() => downloadFile(f.result.downloadUrl, f.result.outputFile)}
                                                     title="Download"
-                                                >⬇</button>
+                                                ><Download size={14} /></button>
                                             )}
                                             {(f.status === 'ready' || f.status === 'error') && (
                                                 <button
                                                     className="fq-item__action fq-item__action--go"
                                                     onClick={() => convertOne(f)}
                                                     title="Convert this file"
-                                                >⇄</button>
+                                                ><RefreshCw size={14} /></button>
                                             )}
                                             <button
                                                 className="fq-item__action fq-item__action--rm"
                                                 onClick={() => removeFile(f.id)}
                                                 title="Remove"
-                                            >×</button>
+                                            ><X size={14} /></button>
                                         </div>
                                     </div>
                                 ))}
@@ -269,7 +283,7 @@ export default function ConvertPage() {
                             <div className="file-queue__footer">
                                 {allDone ? (
                                     <button id="convert-start-btn" className="fq-convert-btn fq-convert-btn--done" onClick={downloadAll}>
-                                        ⬇ Download All ({doneCount} files) → {toFmt}
+                                        <Download size={18} style={{ marginRight: '8px' }} /> Download All ({doneCount} files) <ArrowRight size={18} style={{ marginLeft: '8px' }} /> {toFmt}
                                     </button>
                                 ) : (
                                     <button
@@ -280,7 +294,7 @@ export default function ConvertPage() {
                                     >
                                         {isConverting
                                             ? <><span className="fq-spinner" /> Converting {convertingCount} file{convertingCount > 1 ? 's' : ''}…</>
-                                            : `⇄ Convert ${readyCount > 0 ? readyCount : files.length} File${files.length !== 1 ? 's' : ''} → ${toFmt}`}
+                                            : <><RefreshCw size={18} style={{ marginRight: '8px' }} /> Convert {readyCount > 0 ? readyCount : files.length} File{files.length !== 1 ? 's' : ''} <ArrowRight size={18} style={{ marginLeft: '8px' }} /> {toFmt}</>}
                                     </button>
                                 )}
                             </div>

@@ -1,4 +1,15 @@
 import { useState, useRef } from 'react';
+import { 
+    UploadCloud, 
+    FileText, 
+    Image as ImageIcon, 
+    Music, 
+    Video, 
+    Folder, 
+    X, 
+    RefreshCw,
+    ArrowRight
+} from 'lucide-react';
 import './DropZone.css';
 
 const SUPPORTED_TYPES = [
@@ -10,6 +21,14 @@ const SUPPORTED_TYPES = [
 ];
 
 const FORMAT_OPTIONS = ['PNG', 'JPG', 'WEBP', 'GIF', 'PDF', 'DOCX', 'MP3', 'MP4', 'AVI', 'ZIP', 'CSV', 'XLSX'];
+
+const getFileIcon = (name) => {
+    if (name.match(/\.(jpg|jpeg|png|gif|webp)$/i)) return <ImageIcon size={20} />;
+    if (name.match(/\.pdf$/i)) return <FileText size={20} />;
+    if (name.match(/\.(mp3|wav|ogg)$/i)) return <Music size={20} />;
+    if (name.match(/\.(mp4|avi|mov)$/i)) return <Video size={20} />;
+    return <Folder size={20} />;
+};
 
 export default function DropZone({ onNavigate }) {
     const [isDragging, setIsDragging] = useState(false);
@@ -57,7 +76,7 @@ export default function DropZone({ onNavigate }) {
     const statusConfig = {
         ready: { label: 'Ready', color: 'var(--clr-text-muted)' },
         converting: { label: 'Converting', color: 'var(--clr-warning)' },
-        done: { label: 'Done ✓', color: 'var(--clr-success)' },
+        done: { label: 'Done', color: 'var(--clr-success)' },
     };
 
     return (
@@ -98,17 +117,7 @@ export default function DropZone({ onNavigate }) {
                 />
                 <div className="dropzone__inner">
                     <div className="dropzone__icon-wrapper">
-                        <svg className="dropzone__icon" width="44" height="44" viewBox="0 0 24 24" fill="none">
-                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="url(#dzGrad)" strokeWidth="1.8" strokeLinecap="round" />
-                            <polyline points="17,8 12,3 7,8" stroke="url(#dzGrad)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                            <line x1="12" y1="3" x2="12" y2="15" stroke="url(#dzGrad)" strokeWidth="1.8" strokeLinecap="round" />
-                            <defs>
-                                <linearGradient id="dzGrad" x1="3" y1="3" x2="21" y2="21" gradientUnits="userSpaceOnUse">
-                                    <stop stopColor="#7c5cfc" />
-                                    <stop offset="1" stopColor="#00d4ff" />
-                                </linearGradient>
-                            </defs>
-                        </svg>
+                        <UploadCloud size={44} color="#7c5cfc" />
                     </div>
                     <p className="dropzone__headline">
                         {isDragging ? 'Release to upload' : 'Drop files here or click to browse'}
@@ -133,10 +142,7 @@ export default function DropZone({ onNavigate }) {
                         {files.map(f => (
                             <div key={f.id} className="file-item">
                                 <div className="file-item__icon">
-                                    {f.name.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? '🖼' :
-                                        f.name.match(/\.pdf$/i) ? '📄' :
-                                            f.name.match(/\.(mp3|wav|ogg)$/i) ? '🎵' :
-                                                f.name.match(/\.(mp4|avi|mov)$/i) ? '🎬' : '📁'}
+                                    {getFileIcon(f.name)}
                                 </div>
                                 <div className="file-item__info">
                                     <div className="file-item__name-row">
@@ -160,7 +166,9 @@ export default function DropZone({ onNavigate }) {
                                     onClick={() => removeFile(f.id)}
                                     aria-label={`Remove ${f.name}`}
                                     title="Remove"
-                                >×</button>
+                                >
+                                    <X size={16} />
+                                </button>
                             </div>
                         ))}
                     </div>
@@ -169,9 +177,11 @@ export default function DropZone({ onNavigate }) {
                         className="convert-btn"
                         onClick={handleConvert}
                     >
+                        <RefreshCw size={18} />
                         {files.length > 0
-                            ? `⇄ Open Converter with ${files.length} File${files.length !== 1 ? 's' : ''} →`
-                            : '⇄ Go to File Converter →'}
+                            ? `Open Converter with ${files.length} File${files.length !== 1 ? 's' : ''}`
+                            : 'Go to File Converter'}
+                        <ArrowRight size={18} />
                     </button>
 
                 </div>

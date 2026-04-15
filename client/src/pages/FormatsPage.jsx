@@ -1,11 +1,22 @@
 import { useState } from 'react';
+import { 
+    Image as ImageIcon, 
+    FileText, 
+    Music, 
+    Video, 
+    Package, 
+    BookOpen, 
+    Search,
+    TrendingUp,
+    Box
+} from 'lucide-react';
 import './FormatsPage.css';
 
 const FORMAT_CATEGORIES = [
     {
         id: 'images',
         label: 'Image Formats',
-        icon: '🖼',
+        type: 'image',
         color: '#7c5cfc',
         desc: 'Raster, vector, and animated image formats',
         formats: [
@@ -26,7 +37,7 @@ const FORMAT_CATEGORIES = [
     {
         id: 'documents',
         label: 'Document Formats',
-        icon: '📄',
+        type: 'doc',
         color: '#00d4ff',
         desc: 'Office documents, PDFs, and text files',
         formats: [
@@ -47,7 +58,7 @@ const FORMAT_CATEGORIES = [
     {
         id: 'audio',
         label: 'Audio Formats',
-        icon: '🎵',
+        type: 'audio',
         color: '#22d3a0',
         desc: 'Lossless, lossy, and streaming audio',
         formats: [
@@ -65,7 +76,7 @@ const FORMAT_CATEGORIES = [
     {
         id: 'video',
         label: 'Video Formats',
-        icon: '🎬',
+        type: 'video',
         color: '#f59e0b',
         desc: 'Standard, HD, and streaming video containers',
         formats: [
@@ -83,7 +94,7 @@ const FORMAT_CATEGORIES = [
     {
         id: 'archives',
         label: 'Archive Formats',
-        icon: '📦',
+        type: 'archive',
         color: '#f43f5e',
         desc: 'Compressed archive and package formats',
         formats: [
@@ -99,7 +110,7 @@ const FORMAT_CATEGORIES = [
     {
         id: 'ebooks',
         label: 'eBook Formats',
-        icon: '📚',
+        type: 'ebook',
         color: '#818cf8',
         desc: 'Digital reading and publishing formats',
         formats: [
@@ -112,6 +123,15 @@ const FORMAT_CATEGORIES = [
         ],
     },
 ];
+
+const ICON_MAP = {
+    image: <ImageIcon size={20} />,
+    doc: <FileText size={20} />,
+    audio: <Music size={20} />,
+    video: <Video size={20} />,
+    archive: <Package size={20} />,
+    ebook: <BookOpen size={20} />
+};
 
 const QUALITY_COLOR = {
     Excellent: '#22d3a0',
@@ -159,9 +179,7 @@ export default function FormatsPage() {
                     </p>
                 </div>
                 <div className="formats-page__search">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-                    </svg>
+                    <Search size={14} />
                     <input
                         className="formats-page__search-input"
                         type="search"
@@ -186,7 +204,9 @@ export default function FormatsPage() {
                         } : {}}
                         onClick={() => { setActiveCategory(cat.id); setSearch(''); }}
                     >
-                        <span className="formats-cat-btn__icon">{cat.icon}</span>
+                        <span className="formats-cat-btn__icon" style={{ color: activeCategory === cat.id ? cat.color : 'inherit' }}>
+                            {ICON_MAP[cat.type]}
+                        </span>
                         <span className="formats-cat-btn__label">{cat.label}</span>
                         <span className="formats-cat-btn__count" style={{ background: `${cat.color}18`, color: cat.color }}>
                             {cat.formats.length}
@@ -198,7 +218,7 @@ export default function FormatsPage() {
             {/* Category intro */}
             {category && (
                 <div className="formats-intro glass-card" style={{ borderColor: `${category.color}30` }}>
-                    <span className="formats-intro__icon">{category.icon}</span>
+                    <span className="formats-intro__icon" style={{ color: category.color }}>{ICON_MAP[category.type]}</span>
                     <div>
                         <h3 className="formats-intro__title" style={{ color: category.color }}>{category.label}</h3>
                         <p className="formats-intro__desc">{category.desc}</p>
@@ -246,15 +266,11 @@ export default function FormatsPage() {
                             <p className="fmt-card__desc">{fmt.desc}</p>
                             <div className="fmt-card__meta">
                                 <span className="fmt-card__meta-row">
-                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                        <path d="M21 15V6m0 0H12m9 0l-9 9-4-4-7 7" />
-                                    </svg>
+                                    <TrendingUp size={11} strokeWidth={2.5} />
                                     <span style={{ color: QUALITY_COLOR[fmt.quality] }}>{fmt.quality}</span>
                                 </span>
                                 <span className="fmt-card__meta-row">
-                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                        <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-                                    </svg>
+                                    <Box size={11} strokeWidth={2.5} />
                                     <span style={{ color: SIZE_COLOR[fmt.size] }}>{fmt.size}</span>
                                 </span>
                             </div>

@@ -1,4 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
+import { 
+    Search, 
+    Trash2, 
+    Download, 
+    Image as ImageIcon, 
+    FileText, 
+    FileSpreadsheet, 
+    Music, 
+    Video, 
+    Package, 
+    Folder,
+    HardDrive,
+    Zap,
+    BarChart3,
+    ArrowRight
+} from 'lucide-react';
 import { fetchHistory, deleteHistoryItem, downloadFile, fmtSize } from '../utils/api';
 import './HistoryPage.css';
 
@@ -14,12 +30,22 @@ const typeMap = {
 
 // Fallback static data shown when server has no history yet
 const DEMO_DATA = [
-    { id: 'd1', icon: '🖼', originalName: 'vacation_photo.jpg', fromFmt: 'JPG', toFmt: 'PNG', inputSize: 2411725, outputSize: 3251200, duration: 420, createdAt: new Date(Date.now() - 2 * 60000).toISOString(), outputFile: null },
-    { id: 'd2', icon: '📄', originalName: 'contract_2025.pdf', fromFmt: 'PDF', toFmt: 'DOCX', inputSize: 1887437, outputSize: 943718, duration: 280, createdAt: new Date(Date.now() - 14 * 60000).toISOString(), outputFile: null },
-    { id: 'd3', icon: '📊', originalName: 'sales_data.xlsx', fromFmt: 'XLSX', toFmt: 'CSV', inputSize: 524288, outputSize: 102400, duration: 150, createdAt: new Date(Date.now() - 60 * 60000).toISOString(), outputFile: null },
-    { id: 'd4', icon: '�', originalName: 'project_assets.zip', fromFmt: 'ZIP', toFmt: 'TAR', inputSize: 524288000, outputSize: 524288000, duration: 1200, createdAt: new Date(Date.now() - 3 * 3600000).toISOString(), outputFile: null },
-    { id: 'd5', icon: '🖼', originalName: 'banner_design.png', fromFmt: 'PNG', toFmt: 'WEBP', inputSize: 4404019, outputSize: 1152922, duration: 310, createdAt: new Date(Date.now() - 24 * 3600000).toISOString(), outputFile: null },
+    { id: 'd1', type: 'image', originalName: 'vacation_photo.jpg', fromFmt: 'JPG', toFmt: 'PNG', inputSize: 2411725, outputSize: 3251200, duration: 420, createdAt: new Date(Date.now() - 2 * 60000).toISOString(), outputFile: null },
+    { id: 'd2', type: 'doc', originalName: 'contract_2025.pdf', fromFmt: 'PDF', toFmt: 'DOCX', inputSize: 1887437, outputSize: 943718, duration: 280, createdAt: new Date(Date.now() - 14 * 60000).toISOString(), outputFile: null },
+    { id: 'd3', type: 'spreadsheet', originalName: 'sales_data.xlsx', fromFmt: 'XLSX', toFmt: 'CSV', inputSize: 524288, outputSize: 102400, duration: 150, createdAt: new Date(Date.now() - 60 * 60000).toISOString(), outputFile: null },
+    { id: 'd4', type: 'archive', originalName: 'project_assets.zip', fromFmt: 'ZIP', toFmt: 'TAR', inputSize: 524288000, outputSize: 524288000, duration: 1200, createdAt: new Date(Date.now() - 3 * 3600000).toISOString(), outputFile: null },
+    { id: 'd5', type: 'image', originalName: 'banner_design.png', fromFmt: 'PNG', toFmt: 'WEBP', inputSize: 4404019, outputSize: 1152922, duration: 310, createdAt: new Date(Date.now() - 24 * 3600000).toISOString(), outputFile: null },
 ];
+
+const getIcon = (item) => {
+    const ext = item.fromFmt || '';
+    if (typeMap[ext] === 'Image') return <ImageIcon size={18} />;
+    if (typeMap[ext] === 'Document') return <FileText size={18} />;
+    if (typeMap[ext] === 'Audio') return <Music size={18} />;
+    if (typeMap[ext] === 'Video') return <Video size={18} />;
+    if (typeMap[ext] === 'Archive') return <Package size={18} />;
+    return <Folder size={18} />;
+};
 
 function relativeTime(iso) {
     const diff = Date.now() - new Date(iso).getTime();
@@ -97,7 +123,9 @@ export default function HistoryPage() {
                     <div className="history-page__bulk">
                         <span>{selected.length} selected</span>
                         <button className="hist-btn hist-btn--outline" onClick={() => setSelected([])}>Deselect</button>
-                        <button className="hist-btn hist-btn--danger" onClick={handleDeleteSelected}>🗑 Delete</button>
+                        <button className="hist-btn hist-btn--danger" onClick={handleDeleteSelected}>
+                            <Trash2 size={14} style={{ marginRight: '6px' }} /> Delete
+                        </button>
                     </div>
                 )}
             </div>
@@ -105,10 +133,10 @@ export default function HistoryPage() {
             {/* Summary Stats */}
             <div className="history-stats">
                 {[
-                    { label: 'Total Files', value: stats.total.toLocaleString(), icon: '📁', color: '#7c5cfc' },
-                    { label: 'Data Processed', value: fmtSize(stats.totalInputSize), icon: '💾', color: '#00d4ff' },
-                    { label: 'Space Change', value: savedSize >= 0 ? `-${fmtSize(savedSize)}` : `+${fmtSize(-savedSize)}`, icon: '⚡', color: '#22d3a0' },
-                    { label: 'Output Size', value: fmtSize(stats.totalOutputSize), icon: '�', color: '#f59e0b' },
+                    { label: 'Total Files', value: stats.total.toLocaleString(), icon: <Folder size={18} />, color: '#7c5cfc' },
+                    { label: 'Data Processed', value: fmtSize(stats.totalInputSize), icon: <HardDrive size={18} />, color: '#00d4ff' },
+                    { label: 'Space Change', value: savedSize >= 0 ? `-${fmtSize(savedSize)}` : `+${fmtSize(-savedSize)}`, icon: <Zap size={18} />, color: '#22d3a0' },
+                    { label: 'Output Size', value: fmtSize(stats.totalOutputSize), icon: <BarChart3 size={18} />, color: '#f59e0b' },
                 ].map(s => (
                     <div key={s.label} className="history-stat glass-card">
                         <span className="history-stat__icon" style={{ background: `${s.color}18`, color: s.color }}>{s.icon}</span>
@@ -123,9 +151,7 @@ export default function HistoryPage() {
             {/* Toolbar */}
             <div className="history-toolbar glass-card">
                 <div className="history-toolbar__search">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-                    </svg>
+                    <Search size={14} />
                     <input
                         className="history-toolbar__search-input"
                         type="search"
@@ -180,14 +206,14 @@ export default function HistoryPage() {
                                         <td><input type="checkbox" checked={selected.includes(h.id)} onChange={() => toggle(h.id)} /></td>
                                         <td>
                                             <div className="history-row__file">
-                                                <span className="history-row__file-icon">{h.icon || '📁'}</span>
+                                                <span className="history-row__file-icon">{getIcon(h)}</span>
                                                 <span className="history-row__file-name" title={h.originalName}>{h.originalName}</span>
                                             </div>
                                         </td>
                                         <td>
                                             <div className="history-row__conv">
                                                 {fmtTag(h.fromFmt, '#7c5cfc')}
-                                                <span className="history-row__arrow">→</span>
+                                                <ArrowRight size={12} className="history-row__arrow-icon" style={{ margin: '0 8px', color: 'var(--clr-text-muted)' }} />
                                                 {fmtTag(h.toFmt, '#00d4ff')}
                                             </div>
                                         </td>
@@ -208,13 +234,13 @@ export default function HistoryPage() {
                                                         className="history-row__action-btn history-row__action-btn--dl"
                                                         title="Download"
                                                         onClick={() => downloadFile(`/outputs/${h.outputFile}`, h.outputFile)}
-                                                    >⬇</button>
+                                                    ><Download size={14} /></button>
                                                 )}
                                                 <button
                                                     className="history-row__action-btn history-row__action-btn--del"
                                                     title="Delete"
                                                     onClick={() => handleDelete(h.id)}
-                                                >🗑</button>
+                                                ><Trash2 size={14} /></button>
                                             </div>
                                         </td>
                                     </tr>

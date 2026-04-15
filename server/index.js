@@ -1,16 +1,26 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuid } = require('uuid');
 const sharp = require('sharp');
+const sharpBmp = require('sharp-bmp');
 const archiver = require('archiver');
 const XLSX = require('xlsx');
 const mammoth = require('mammoth');
+const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
+const pdf = require('pdf-parse');
+const ffmpeg = require('fluent-ffmpeg');
+const { Document, Packer, Paragraph, TextRun } = require('docx');
+const libre = require('libreoffice-convert');
+const util = require('util');
+const libreConvert = util.promisify(libre.convert);
 
 const app = express();
-const PORT = 4000;
+const PORT = process.env.PORT || 4000;
 
 // ── Directories ──────────────────────────────────────────────────────────────
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
@@ -21,6 +31,7 @@ const OUTPUT_DIR = path.join(__dirname, 'outputs');
 const history = [];   // { id, originalName, fromFmt, toFmt, inputSize, outputSize, duration, createdAt, outputFile }
 
 // ── Middleware ────────────────────────────────────────────────────────────────
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
@@ -37,8 +48,27 @@ const upload = multer({
     limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB
 });
 
+// ── PDF Extraction Helper ───────────────────────────────────────────────────
+async function extractTextFromPdf(buffer) {
+    // pdf-parse v1.1.1 is a function
+    return await pdf(buffer);
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const ext = name => path.extname(name).replace('.', '').toUpperCase();
+
+// Clean text for PDF (WinAnsi fallback)
+function cleanPdfText(text) {
+    if (!text) return ' ';
+    return text.trim(); // Keep Unicode symbols!
+}
+
+// Load TrueType font for Unicode support (Arial on Windows)
+const FONT_PATH = 'C:/Windows/Fonts/arial.ttf';
+let customFontBuffer = null;
+if (fs.existsSync(FONT_PATH)) {
+    customFontBuffer = fs.readFileSync(FONT_PATH);
+}
 
 // Image formats sharp can output
 const SHARP_OUTPUT = ['JPEG', 'JPG', 'PNG', 'WEBP', 'AVIF', 'GIF', 'TIFF', 'BMP'];
@@ -50,50 +80,103 @@ function sharpFormat(fmt) {
 }
 
 // ── Conversion logic ──────────────────────────────────────────────────────────
-async function convertFile(inputPath, originalName, fromFmt, toFmt, quality) {
+async function convertFile(inputPath, originalName, fromFmt, toFmt, quality, resolution) {
     const jobId = uuid();
     const outName = `${jobId}.${toFmt.toLowerCase()}`;
     const outPath = path.join(OUTPUT_DIR, outName);
     const inExt = fromFmt.toUpperCase();
     const outExt = toFmt.toUpperCase();
 
+    // ── HEIC → IMAGE ──────────────────────────────────────────────────────────
+    if (inExt === 'HEIC') {
+        const heicConvert = require('heic-convert');
+        const inputBuf = fs.readFileSync(inputPath);
+        const outputBuf = await heicConvert({
+            buffer: inputBuf,
+            format: 'PNG'
+        });
+        // Save as temporary PNG or continue with sharp? 
+        // Let's save it to outPath if target is PNG, otherwise continue with Sharp
+        if (outExt === 'PNG') {
+            fs.writeFileSync(outPath, outputBuf);
+            return outName;
+        }
+        // If not PNG, replace inputPath with the converted buffer for Sharp
+        const tmpPng = path.join(UPLOAD_DIR, `${jobId}-tmp.png`);
+        fs.writeFileSync(tmpPng, outputBuf);
+        inputPath = tmpPng; // Redirect sharp to use the decoded buffer
+    }
+
     // ── IMAGE → IMAGE ──────────────────────────────────────────────────────────
     if (SHARP_READABLE.includes(inExt) && SHARP_OUTPUT.includes(outExt)) {
-        const qualityMap = { low: 40, medium: 70, high: 90 };
-        const q = qualityMap[quality] ?? 80;
-        let sharpChain = sharp(inputPath);
-        if (outExt === 'JPG' || outExt === 'JPEG') {
-            sharpChain = sharpChain.jpeg({ quality: q });
-        } else if (outExt === 'PNG') {
-            sharpChain = sharpChain.png({ compressionLevel: Math.round((100 - q) / 11) });
-        } else if (outExt === 'WEBP') {
-            sharpChain = sharpChain.webp({ quality: q });
-        } else if (outExt === 'AVIF') {
-            sharpChain = sharpChain.avif({ quality: q });
-        } else if (outExt === 'GIF') {
-            sharpChain = sharpChain.gif();
-        } else if (outExt === 'TIFF') {
-            sharpChain = sharpChain.tiff({ quality: q });
-        } else if (outExt === 'BMP') {
-            sharpChain = sharpChain.bmp();
+        try {
+            const qualityMap = { low: 40, medium: 70, high: 90 };
+            const q = qualityMap[quality] ?? 80;
+            let sharpChain = sharp(inputPath);
+            if (outExt === 'JPG' || outExt === 'JPEG') {
+                sharpChain = sharpChain.jpeg({ quality: q });
+            } else if (outExt === 'PNG') {
+                sharpChain = sharpChain.png({ compressionLevel: Math.round((100 - q) / 11) });
+            } else if (outExt === 'WEBP') {
+                sharpChain = sharpChain.webp({ quality: q });
+            } else if (outExt === 'AVIF') {
+                sharpChain = sharpChain.avif({ quality: q });
+            } else if (outExt === 'GIF') {
+                sharpChain = sharpChain.gif();
+            } else if (outExt === 'TIFF') {
+                sharpChain = sharpChain.tiff({ quality: q });
+            } else if (outExt === 'BMP') {
+                const { data, info } = await sharp(inputPath).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+                const bmpData = sharpBmp.encode({ data, width: info.width, height: info.height });
+                fs.writeFileSync(outPath, bmpData.data);
+                return outName;
+            }
+            await sharpChain.toFile(outPath);
+            return outName;
+        } catch (sharpErr) {
+            console.error(`Sharp conversion error for ${originalName}:`, sharpErr);
+            throw sharpErr;
         }
-        await sharpChain.toFile(outPath);
-        return outName;
     }
 
-    // ── DOCX → HTML (mammoth) ──────────────────────────────────────────────────
-    if (inExt === 'DOCX' && outExt === 'HTML') {
-        const result = await mammoth.convertToHtml({ path: inputPath });
-        fs.writeFileSync(outPath.replace(/\.\w+$/, '.html'), result.value, 'utf8');
-        return outName.replace(/\.\w+$/, '.html');
-    }
+    // ── DOCX → HTML / TXT / PDF ───────────────────────────────────────────────
+    if (inExt === 'DOCX') {
+        if (outExt === 'HTML') {
+            const result = await mammoth.convertToHtml({ path: inputPath });
+            fs.writeFileSync(outPath.replace(/\.\w+$/, '.html'), result.value, 'utf8');
+            return outName.replace(/\.\w+$/, '.html');
+        }
+        if (outExt === 'TXT') {
+            const result = await mammoth.extractRawText({ path: inputPath });
+            const p = outPath.replace(/\.\w+$/, '.txt');
+            fs.writeFileSync(p, result.value, 'utf8');
+            return path.basename(p);
+        }
+        if (outExt === 'PDF') {
+            try {
+                const docBuf = fs.readFileSync(inputPath);
+                const pdfBuf = await libreConvert(docBuf, '.pdf', undefined);
+                fs.writeFileSync(outPath, pdfBuf);
+                return outName;
+            } catch (libreErr) {
+                console.warn('LibreOffice conversion failed, falling back to basic PDF generation:', libreErr.message);
+                const result = await mammoth.extractRawText({ path: inputPath });
+                const pdfDoc = await PDFDocument.create();
+                const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
-    // ── DOCX → TXT ────────────────────────────────────────────────────────────
-    if (inExt === 'DOCX' && outExt === 'TXT') {
-        const result = await mammoth.extractRawText({ path: inputPath });
-        const txtPath = outPath.replace(/\.\w+$/, '.txt');
-        fs.writeFileSync(txtPath, result.value, 'utf8');
-        return path.basename(txtPath);
+                const lines = result.value.split('\n');
+                let page = pdfDoc.addPage([600, 800]);
+                let y = 750;
+                for (const line of lines) {
+                    if (y < 40) { page = pdfDoc.addPage([600, 800]); y = 750; }
+                    const cleaned = cleanPdfText(line.slice(0, 95));
+                    page.drawText(cleaned || ' ', { x: 50, y, size: 10.5, font });
+                    y -= 13.5;
+                }
+                fs.writeFileSync(outPath, await pdfDoc.save());
+                return outName;
+            }
+        }
     }
 
     // ── XLSX / XLS → CSV ──────────────────────────────────────────────────────
@@ -151,24 +234,136 @@ async function convertFile(inputPath, originalName, fromFmt, toFmt, quality) {
         return path.basename(txtPath);
     }
 
-    // ── ANY → ZIP (archive) ───────────────────────────────────────────────────
-    if (outExt === 'ZIP') {
-        const zipPath = outPath.replace(/\.\w+$/, '.zip');
+    // ── IMAGE → PDF ──────────────────────────────────────────────────────────
+    if (SHARP_READABLE.includes(inExt) && outExt === 'PDF') {
+        const { data, info } = await sharp(inputPath).png().toBuffer({ resolveWithObject: true });
+        const pdfDoc = await PDFDocument.create();
+        const page = pdfDoc.addPage([info.width, info.height]);
+        const img = await pdfDoc.embedPng(data);
+        page.drawImage(img, { x: 0, y: 0, width: info.width, height: info.height });
+        fs.writeFileSync(outPath, await pdfDoc.save());
+        return outName;
+    }
+
+    // ── TXT → PDF ─────────────────────────────────────────────────────────────
+    if (inExt === 'TXT' && outExt === 'PDF') {
+        const text = fs.readFileSync(inputPath, 'utf8');
+        const pdfDoc = await PDFDocument.create();
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
+        const lines = text.split('\n');
+        let page = pdfDoc.addPage([600, 800]);
+        let y = 750;
+        for (const line of lines) {
+            if (y < 40) { page = pdfDoc.addPage([600, 800]); y = 750; }
+            const cleaned = cleanPdfText(line.slice(0, 90));
+            page.drawText(cleaned || ' ', { x: 50, y, size: 11, font });
+            y -= 14;
+        }
+        fs.writeFileSync(outPath, await pdfDoc.save());
+        return outName;
+    }
+
+    // ── PDF → DOCX / TXT ──────────────────────────────────────────────────────
+    if (inExt === 'PDF' && (outExt === 'DOCX' || outExt === 'TXT' || outExt === 'HTML')) {
+        const buffer = fs.readFileSync(inputPath);
+        const data = await extractTextFromPdf(buffer);
+        const text = data.text || '';
+
+        if (outExt === 'TXT') {
+            fs.writeFileSync(outPath, text, 'utf8');
+            return outName;
+        }
+        if (outExt === 'HTML') {
+            const html = `<html><body style="font-family:sans-serif; white-space:pre-wrap;">${text}</body></html>`;
+            fs.writeFileSync(outPath, html, 'utf8');
+            return outName;
+        }
+        if (outExt === 'DOCX') {
+            const doc = new Document({
+                sections: [{
+                    children: text.split('\n').map(line => new Paragraph({
+                        children: [new TextRun(line.trim() || ' ')]
+                    }))
+                }]
+            });
+            const outBuf = await Packer.toBuffer(doc);
+            fs.writeFileSync(outPath, outBuf);
+            return outName;
+        }
+    }
+
+    // ── MEDIA (AUDIO/VIDEO) ───────────────────────────────────────────────────
+    const AUDIO = ['MP3', 'WAV', 'FLAC', 'OGG', 'M4A', 'AAC'];
+    const VIDEO = ['MP4', 'WEBM', 'MKV', 'AVI', 'MOV', 'FLV', 'WMV'];
+    if ((AUDIO.includes(inExt) || VIDEO.includes(inExt)) && (AUDIO.includes(outExt) || VIDEO.includes(outExt))) {
         await new Promise((resolve, reject) => {
-            const output = fs.createWriteStream(zipPath);
-            const archive = archiver('zip', { zlib: { level: 9 } });
+            let outputFmt = toFmt.toLowerCase();
+            if (outputFmt === 'aac') outputFmt = 'adts';
+            if (outputFmt === 'm4a') outputFmt = 'ipod';
+            if (outputFmt === 'mkv') outputFmt = 'matroska';
+            let command = ffmpeg(inputPath).toFormat(outputFmt);
+            if (AUDIO.includes(outExt) && VIDEO.includes(inExt)) {
+                command = command.noVideo();
+            } else if (VIDEO.includes(outExt)) {
+                if (resolution === '1080p') command = command.size('1920x1080');
+                else if (resolution === '720p') command = command.size('1280x720');
+                else if (resolution === '480p') command = command.size('854x480');
+            }
+            if (outExt === 'AAC' || outExt === 'M4A') {
+                command = command.audioCodec('aac');
+            }
+            if (outExt === 'WEBM') {
+                command = command.videoCodec('libvpx').audioCodec('libvorbis');
+            }
+            if (outExt === 'FLV') {
+                command = command.videoCodec('libx264').audioCodec('aac');
+            }
+            command.on('end', resolve).on('error', reject).save(outPath);
+        });
+        return outName;
+    }
+
+    // ── ANY → ZIP / TAR (archive) ──────────────────────────────────────────────
+    if (outExt === 'ZIP' || outExt === 'TAR') {
+        const type = outExt.toLowerCase();
+        const finalPath = outPath.replace(/\.\w+$/, `.${type}`);
+        await new Promise((resolve, reject) => {
+            const output = fs.createWriteStream(finalPath);
+            const archive = archiver(type, { zlib: { level: 9 } });
             output.on('close', resolve);
             archive.on('error', reject);
             archive.pipe(output);
             archive.file(inputPath, { name: originalName });
             archive.finalize();
         });
-        return path.basename(zipPath);
+        return path.basename(finalPath);
     }
 
-    // ── ZIP → extract first file (passthrough) ────────────────────────────────
+    // ── ZIP → extract first file (simplistic) ─────────────────────────────────
     if (inExt === 'ZIP' && outExt !== 'ZIP') {
-        // Simply copy the zip for download (full extraction is complex)
+        const extract = require('extract-zip');
+        const tmpDir = path.join(UPLOAD_DIR, `extract-${uuid()}`);
+        fs.mkdirSync(tmpDir, { recursive: true });
+        
+        await extract(inputPath, { dir: tmpDir });
+        const files = fs.readdirSync(tmpDir);
+        
+        if (files.length > 0) {
+            // Pick first file that isn't a directory
+            const firstFile = files.find(f => fs.statSync(path.join(tmpDir, f)).isFile());
+            if (firstFile) {
+                const extractedPath = path.join(tmpDir, firstFile);
+                const outExtFinal = path.extname(firstFile) || `.${toFmt.toLowerCase()}`;
+                const finalOutPath = outPath.replace(/\.[^.]+$/, outExtFinal);
+                fs.copyFileSync(extractedPath, finalOutPath);
+                // Clean up tmp dir
+                fs.rmSync(tmpDir, { recursive: true, force: true });
+                return path.basename(finalOutPath);
+            }
+        }
+        // Fallback: just return the zip if extraction fails or empty
+        fs.rmSync(tmpDir, { recursive: true, force: true });
         const copyPath = outPath.replace(/\.\w+$/, '.zip');
         fs.copyFileSync(inputPath, copyPath);
         return path.basename(copyPath);
@@ -186,19 +381,38 @@ async function convertFile(inputPath, originalName, fromFmt, toFmt, quality) {
 // Health check
 app.get('/api/health', (_, res) => res.json({ status: 'ok', version: '1.0.0' }));
 
+// Supported formats mapping API
+app.get('/api/supported-formats', (_, res) => {
+    res.json({
+        audio: [
+            { from: 'mp3', to: ['aac', 'm4a'] },
+            { from: 'wav', to: ['aac', 'm4a'] },
+            { from: 'mp4', to: ['aac'] },
+            { from: 'flac', to: ['aac', 'm4a'] }
+        ],
+        archive: [
+            { from: 'any', to: ['zip', 'tar'] },
+            { from: 'zip', to: ['extract'] }
+        ],
+        video: [
+            { from: 'any', to: ['mp4', 'webm', 'mkv', 'avi', 'mov', 'flv', 'wmv'] }
+        ]
+    });
+});
+
 // Convert endpoint
 app.post('/api/convert', upload.single('file'), async (req, res) => {
     const start = Date.now();
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-    const { toFmt = 'PNG', quality = 'high' } = req.body;
+    const { toFmt = 'PNG', quality = 'high', resolution = 'original' } = req.body;
     const originalName = req.file.originalname;
     const fromFmt = ext(originalName) || req.body.fromFmt || 'UNKNOWN';
     const inputPath = req.file.path;
     const inputSize = req.file.size;
 
     try {
-        const outputFile = await convertFile(inputPath, originalName, fromFmt, toFmt, quality);
+        const outputFile = await convertFile(inputPath, originalName, fromFmt, toFmt, quality, resolution);
         const outputPath = path.join(OUTPUT_DIR, outputFile);
         const outputSize = fs.existsSync(outputPath) ? fs.statSync(outputPath).size : 0;
         const duration = Date.now() - start;
@@ -242,14 +456,14 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
 // Batch convert: multiple files
 app.post('/api/convert/batch', upload.array('files', 50), async (req, res) => {
     if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files' });
-    const { toFmt = 'PNG', quality = 'high' } = req.body;
+    const { toFmt = 'PNG', quality = 'high', resolution = 'original' } = req.body;
     const results = [];
 
     for (const file of req.files) {
         const fromFmt = ext(file.originalname) || 'UNKNOWN';
         const start = Date.now();
         try {
-            const outputFile = await convertFile(file.path, file.originalname, fromFmt, toFmt, quality);
+            const outputFile = await convertFile(file.path, file.originalname, fromFmt, toFmt, quality, resolution);
             const outputPath = path.join(OUTPUT_DIR, outputFile);
             const outputSize = fs.existsSync(outputPath) ? fs.statSync(outputPath).size : 0;
             const record = {
@@ -330,3 +544,8 @@ app.get('/api/stats', (_, res) => {
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => console.log(`FileForge API running on http://localhost:${PORT}`));
+
+const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+const ffprobeInstaller = require('@ffprobe-installer/ffprobe');
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+ffmpeg.setFfprobePath(ffprobeInstaller.path);
