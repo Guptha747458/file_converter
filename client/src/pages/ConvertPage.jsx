@@ -24,7 +24,7 @@ import './ConvertPage.css';
 // ── Format catalogue ──────────────────────────────────────────────────────────
 const FORMAT_GROUPS = [
     { group: 'Image', color: '#7c5cfc', formats: ['PNG', 'JPG', 'WEBP', 'GIF', 'AVIF', 'BMP', 'TIFF'] },
-    { group: 'Document', color: '#00d4ff', formats: ['PDF', 'DOCX', 'XLSX', 'TXT', 'CSV', 'HTML', 'JSON'] },
+    { group: 'Document', color: '#00d4ff', formats: ['PDF', 'DOCX', 'PPTX', 'XLSX', 'PPT', 'TXT', 'CSV', 'HTML'] },
     { group: 'Audio', color: '#22d3a0', formats: ['MP3', 'WAV', 'FLAC', 'AAC', 'OGG', 'M4A'] },
     { group: 'Video', color: '#f59e0b', formats: ['MP4', 'AVI', 'MOV', 'MKV', 'WEBM', 'FLV'] },
     { group: 'Archive', color: '#f43f5e', formats: ['ZIP', 'TAR', 'GZ', '7Z', 'BZ2'] },
@@ -37,6 +37,7 @@ const FILE_ICON = name => {
     if (/\.(pdf)$/i.test(name)) return <FileText size={20} />;
     if (/\.(docx|doc|odt|rtf)$/i.test(name)) return <FileCheck size={20} />;
     if (/\.(xlsx|xls|csv)$/i.test(name)) return <FileSpreadsheet size={20} />;
+    if (/\.(pptx|ppt)$/i.test(name)) return <Layout size={20} />;
     if (/\.(mp3|wav|ogg|flac|aac|m4a)$/i.test(name)) return <Music size={20} />;
     if (/\.(mp4|avi|mov|mkv|webm|flv)$/i.test(name)) return <Video size={20} />;
     if (/\.(zip|tar|gz|7z|bz2|rar)$/i.test(name)) return <Package size={20} />;

@@ -1,12 +1,11 @@
 /* ============================================================
-   App Shell Layout — Responsive
+   App Shell Layout — Floating Sidebar
    ============================================================ */
 
 .app-layout {
   display: flex;
   min-height: 100vh;
   background: var(--clr-bg-base);
-  /* Mobile: sidebar hides off-canvas */
   position: relative;
   overflow-x: hidden;
 }
@@ -15,10 +14,23 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  /* On mobile the sidebar is hidden so main fills full width */
   min-width: 0;
   overflow: hidden;
-  transition: margin-left var(--duration-med) var(--ease-smooth);
+  /* Indent content to make room for the floating sidebar on desktop */
+  padding-left: calc(var(--sidebar-width, 260px) + 32px);
+  transition: padding-left var(--duration-med) var(--ease-smooth);
+}
+
+/* When sidebar is collapsed, reduce indent */
+.app-layout--collapsed .app-layout__main {
+  padding-left: calc(var(--sidebar-collapsed-width, 72px) + 32px);
+}
+
+/* Mobile: sidebar is overlay, content is full width */
+@media (max-width: 899px) {
+  .app-layout__main {
+    padding-left: 0;
+  }
 }
 
 /* Page transition wrapper */
@@ -38,7 +50,7 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
-  z-index: 99;
+  z-index: 150;
   backdrop-filter: blur(2px);
 }
 

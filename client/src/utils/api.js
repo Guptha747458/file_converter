@@ -1,6 +1,7 @@
 // ── Base URL ──────────────────────────────────────────────────────────────────
 // In dev, Vite proxies /api → http://localhost:4000. In prod, same origin.
-const BASE = '/api';
+// In dev, Vite proxies /api → http://localhost:4000. In prod, we use origin or env.
+const BASE = import.meta.env.VITE_API_URL || '/api';
 
 function fmtSize(bytes) {
     if (!bytes || bytes === 0) return '0 B';
@@ -80,6 +81,29 @@ export function downloadFile(downloadUrl, filename) {
     a.href = downloadUrl;
     a.download = filename;
     a.click();
+}
+
+// ── Authentication ────────────────────────────────────────────────────────────
+export async function signupUser(userData) {
+    const r = await fetch(`${BASE}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+    });
+    const data = await r.json();
+    if (!r.ok) throw data;
+    return data;
+}
+
+export async function loginUser(credentials) {
+    const r = await fetch(`${BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials)
+    });
+    const data = await r.json();
+    if (!r.ok) throw data;
+    return data;
 }
 
 export { fmtSize };

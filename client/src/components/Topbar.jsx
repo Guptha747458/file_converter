@@ -7,8 +7,11 @@ import {
     Search, 
     Bell, 
     Sun, 
-    Moon 
+    Moon,
+    LogOut,
+    Menu
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import './Topbar.css';
 
 const tools = [
@@ -27,7 +30,7 @@ const ICON_MAP = {
     archive: <Package size={16} />
 };
 
-export default function Topbar({ activeNav, toggleTheme, theme }) {
+export default function Topbar({ activeNav, toggleTheme, theme, onMenuClick }) {
     const pageTitles = {
         dashboard: 'Dashboard',
         convert: 'Convert Files',
@@ -37,14 +40,26 @@ export default function Topbar({ activeNav, toggleTheme, theme }) {
     };
 
     const isDark = theme === 'dark';
+    const { user, logout } = useAuth();
+    const displayName = user?.name || 'User';
 
     return (
         <header className="topbar">
+            {/* Hamburger — mobile only */}
+            <button
+                id="mobile-menu-btn"
+                className="topbar__hamburger"
+                onClick={onMenuClick}
+                aria-label="Open navigation menu"
+            >
+                <Menu size={22} />
+            </button>
+
             <div className="topbar__left">
                 <div className="topbar__page-info">
                     <h1 className="topbar__page-title">{pageTitles[activeNav] || 'Dashboard'}</h1>
                     <p className="topbar__page-sub">
-                        Welcome back, HAI ·{' '}
+                        Welcome back, {displayName} ·{' '}
                         {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                     </p>
                 </div>
@@ -94,6 +109,17 @@ export default function Topbar({ activeNav, toggleTheme, theme }) {
                         <Moon size={18} />
                     )}
                     <span className="topbar__theme-label">{isDark ? 'Light' : 'Dark'}</span>
+                </button>
+
+                {/* Logout */}
+                <button
+                    id="logout-btn"
+                    className="topbar__icon-btn"
+                    onClick={logout}
+                    aria-label="Sign out"
+                    title="Sign out"
+                >
+                    <LogOut size={18} />
                 </button>
             </div>
         </header>

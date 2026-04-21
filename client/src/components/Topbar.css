@@ -312,3 +312,36 @@
     border-color: rgba(99, 68, 232, 0.55);
     box-shadow: 0 0 16px rgba(99, 68, 232, 0.18);
 }
+
+/* ── Hamburger — mobile only ─────────────────────────────── */
+.topbar__hamburger {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--clr-border);
+    color: var(--clr-text-secondary);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-smooth);
+    touch-action: manipulation;
+}
+
+[data-theme="light"] .topbar__hamburger {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.topbar__hamburger:hover {
+    background: rgba(124, 92, 252, 0.12);
+    border-color: var(--clr-border-hover);
+    color: var(--clr-text-primary);
+}
+
+@media (max-width: 899px) {
+    .topbar__hamburger {
+        display: flex;
+    }
+}

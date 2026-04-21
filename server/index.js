@@ -17,26 +17,169 @@ const ffmpeg = require('fluent-ffmpeg');
 const { Document, Packer, Paragraph, TextRun } = require('docx');
 const libre = require('libreoffice-convert');
 const util = require('util');
-const libreConvert = util.promisify(libre.convert);
+const libreConvert = (buf, targetExt) => new Promise((resolve, reject) => {
+    libre.convert(buf, targetExt, undefined, (err, data) => {
+        if (err) reject(err);
+        else resolve(data);
+    });
+});
+const JSZip = require('jszip');
+const xml2js = require('xml2js');
+
+// ── Puppeteer PDF helper ──────────────────────────────────────────────────────
+async function htmlToPdf(htmlContent, outPath, opts = {}) {
+    const puppeteer = require('puppeteer');
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    });
+    try {
+        const page = await browser.newPage();
+        await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+        await page.pdf({
+            path: outPath,
+            format: opts.format || 'A4',
+            printBackground: true,
+            margin: opts.margin || { top: '20mm', right: '20mm', bottom: '20mm', left: '20mm' },
+            ...opts.pdfOpts
+        });
+    } finally {
+        await browser.close();
+    }
+}
+
+// ── PPTX text/slide extractor ────────────────────────────────────────────────
+async function extractPptxSlides(filePath) {
+    const data = fs.readFileSync(filePath);
+    const zip = await JSZip.loadAsync(data);
+    const slideFiles = Object.keys(zip.files)
+        .filter(n => /^ppt\/slides\/slide\d+\.xml$/i.test(n))
+        .sort((a, b) => {
+            const na = parseInt(a.match(/\d+/)?.[0] || '0');
+            const nb = parseInt(b.match(/\d+/)?.[0] || '0');
+            return na - nb;
+        });
+
+    const slides = [];
+    for (const slideFile of slideFiles) {
+        const xmlStr = await zip.files[slideFile].async('string');
+        const parsed = await xml2js.parseStringPromise(xmlStr, { explicitArray: false });
+        const texts = [];
+        // Recursively extract all <a:t> text nodes
+        function extractText(obj) {
+            if (!obj || typeof obj !== 'object') return;
+            if (obj['a:t']) {
+                const t = obj['a:t'];
+                if (typeof t === 'string') texts.push(t);
+                else if (Array.isArray(t)) t.forEach(v => typeof v === 'string' && texts.push(v));
+            }
+            Object.values(obj).forEach(v => {
+                if (Array.isArray(v)) v.forEach(extractText);
+                else extractText(v);
+            });
+        }
+        extractText(parsed);
+        slides.push(texts.join('\n').trim());
+    }
+    return slides;
+}
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+const mongoose = require('mongoose');
+
+// ── Database Connection ──────────────────────────────────────────────────────
+const DATABASE_URL = process.env.DATABASE_URL;
+let gridFSBucket;
+
+if (DATABASE_URL) {
+    mongoose.connect(DATABASE_URL)
+        .then(() => {
+            console.log('Connected to MongoDB');
+            const db = mongoose.connection.db;
+            gridFSBucket = new mongoose.mongo.GridFSBucket(db, {
+                bucketName: 'outputs'
+            });
+        })
+        .catch(err => console.error('MongoDB connection error:', err));
+} else {
+    console.warn('WARNING: DATABASE_URL not found in .env. Falling back to in-memory mode (not recommended for production).');
+}
+
+// ── Database Schema ──────────────────────────────────────────────────────────
+const conversionSchema = new mongoose.Schema({
+    id: { type: String, unique: true },
+    originalName: String,
+    fromFmt: String,
+    toFmt: String,
+    inputSize: Number,
+    outputSize: Number,
+    duration: Number,
+    outputFile: String,
+    icon: String,
+    createdAt: { type: Date, default: Date.now, expires: 86400 } // Auto-delete after 24h
+});
+
+const Conversion = mongoose.model('Conversion', conversionSchema);
+
+const userSchema = new mongoose.Schema({
+    name: String,
+    email: { type: String, unique: true, required: true },
+    password: { type: String, required: true },
+    createdAt: { type: Date, default: Date.now }
+});
+
+const User = mongoose.model('User', userSchema);
 
 // ── Directories ──────────────────────────────────────────────────────────────
 const UPLOAD_DIR = path.join(__dirname, 'uploads');
 const OUTPUT_DIR = path.join(__dirname, 'outputs');
 [UPLOAD_DIR, OUTPUT_DIR].forEach(d => fs.mkdirSync(d, { recursive: true }));
 
-// ── In-memory history ─────────────────────────────────────────────────────────
-const history = [];   // { id, originalName, fromFmt, toFmt, inputSize, outputSize, duration, createdAt, outputFile }
+// ── Legacy In-memory history (for fallback or temporary cached access) ───────
+let history = [];
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(helmet());
 app.use(cors());
 app.use(express.json());
 
-// Serve converted outputs
+// Static outputs (legacy/fallback)
 app.use('/outputs', express.static(OUTPUT_DIR));
+
+// GridFS Download Route: Streams files directly from MongoDB
+app.get('/api/files/:filename', async (req, res) => {
+    if (!gridFSBucket) {
+        const filePath = path.join(OUTPUT_DIR, req.params.filename);
+        if (fs.existsSync(filePath)) return res.sendFile(filePath);
+        return res.status(404).send('File not found (Server disconnected)');
+    }
+
+    try {
+        const files = await gridFSBucket.find({ filename: req.params.filename }).toArray();
+        if (!files || files.length === 0) {
+            // Check local fallback
+            const filePath = path.join(OUTPUT_DIR, req.params.filename);
+            if (fs.existsSync(filePath)) return res.sendFile(filePath);
+            return res.status(404).send('File not found');
+        }
+
+        const downloadStream = gridFSBucket.openDownloadStreamByName(req.params.filename);
+        
+        // Infer content type
+        const ext = path.extname(req.params.filename).toLowerCase();
+        const mimeTypes = {
+            '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+            '.webp': 'image/webp', '.mp3': 'audio/mpeg', '.mp4': 'video/mp4', '.zip': 'application/zip',
+            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        };
+        res.set('Content-Type', mimeTypes[ext] || 'application/octet-stream');
+        downloadStream.pipe(res);
+    } catch (err) {
+        res.status(500).send('Error retrieving file from database');
+    }
+});
 
 // Multer: disk storage
 const storage = multer.diskStorage({
@@ -71,6 +214,10 @@ if (fs.existsSync(FONT_PATH)) {
 }
 
 // Image formats sharp can output
+const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.bmp', '.tiff', '.svg', '.heic'];
+const DOC_EXTS = ['.pdf', '.docx', '.xlsx', '.xls', '.txt', '.rtf', '.odt', '.csv', '.html', '.ppt', '.pptx'];
+const AUDIO_EXTS = ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a'];
+
 const SHARP_OUTPUT = ['JPEG', 'JPG', 'PNG', 'WEBP', 'AVIF', 'GIF', 'TIFF', 'BMP'];
 const SHARP_READABLE = ['JPEG', 'JPG', 'PNG', 'WEBP', 'AVIF', 'GIF', 'TIFF', 'BMP', 'HEIC', 'SVG', 'ICO'];
 
@@ -139,7 +286,147 @@ async function convertFile(inputPath, originalName, fromFmt, toFmt, quality, res
         }
     }
 
-    // ── DOCX → HTML / TXT / PDF ───────────────────────────────────────────────
+    // ── DOCX / DOC → PDF (Mammoth → HTML → Puppeteer) ───────────────────────
+    if ((inExt === 'DOCX' || inExt === 'DOC') && outExt === 'PDF') {
+        try {
+            const result = await mammoth.convertToHtml({ path: inputPath });
+            const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12pt; line-height: 1.6;
+         margin: 0; padding: 0; color: #222; }
+  h1 { font-size: 22pt; font-weight: bold; margin: 16px 0 8px; color: #111; }
+  h2 { font-size: 18pt; font-weight: bold; margin: 14px 0 6px; color: #222; }
+  h3 { font-size: 15pt; font-weight: bold; margin: 12px 0 4px; }
+  p  { margin: 0 0 8px; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+  th, td { border: 1px solid #ccc; padding: 6px 10px; text-align: left; }
+  th { background: #f0f0f0; font-weight: bold; }
+  ul, ol { margin: 6px 0 6px 24px; }
+  img { max-width: 100%; height: auto; }
+  strong { font-weight: bold; } em { font-style: italic; }
+</style></head>
+<body>${result.value}</body></html>`;
+            await htmlToPdf(html, outPath);
+            return outName;
+        } catch (err) {
+            console.error(`DOCX→PDF error:`, err.message);
+            throw new Error(`Failed to convert ${inExt} to PDF: ${err.message}`);
+        }
+    }
+
+    // ── XLSX / XLS → PDF (Styled HTML Table → Puppeteer) ────────────────────
+    if ((inExt === 'XLSX' || inExt === 'XLS') && outExt === 'PDF') {
+        try {
+            const wb = XLSX.readFile(inputPath);
+            let sheetsHtml = '';
+            for (const sheetName of wb.SheetNames) {
+                const ws = wb.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+                if (rows.length === 0) continue;
+                const header = rows[0];
+                const body = rows.slice(1);
+                const headerHtml = header.map(c => `<th>${String(c ?? '').replace(/</g, '&lt;')}</th>`).join('');
+                const bodyHtml = body.map(r =>
+                    `<tr>${header.map((_, i) => `<td>${String(r[i] ?? '').replace(/</g, '&lt;')}</td>`).join('')}</tr>`
+                ).join('');
+                sheetsHtml += `<h2 class="sheet-title">${sheetName.replace(/</g, '&lt;')}</h2>
+<table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
+            }
+            const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; color: #222; margin: 0; }
+  .sheet-title { font-size: 14pt; font-weight: bold; margin: 18px 0 6px; color: #1a73e8;
+                 border-bottom: 2px solid #1a73e8; padding-bottom: 4px; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 24px; }
+  th { background: #1a73e8; color: #fff; font-weight: bold; padding: 7px 10px;
+       border: 1px solid #1558b0; text-align: left; font-size: 10pt; }
+  td { padding: 5px 10px; border: 1px solid #ddd; font-size: 9.5pt; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+  tr:hover td { background: #e8f0fe; }
+</style></head>
+<body>${sheetsHtml}</body></html>`;
+            await htmlToPdf(html, outPath, { format: 'A3', margin: { top: '15mm', right: '10mm', bottom: '15mm', left: '10mm' } });
+            return outName;
+        } catch (err) {
+            console.error(`XLSX→PDF error:`, err.message);
+            throw new Error(`Failed to convert ${inExt} to PDF: ${err.message}`);
+        }
+    }
+
+    // ── PPTX / PPT → PDF (Slide HTML → Puppeteer) ───────────────────────────
+    if ((inExt === 'PPTX' || inExt === 'PPT') && outExt === 'PDF') {
+        try {
+            let slides;
+            if (inExt === 'PPTX') {
+                slides = await extractPptxSlides(inputPath);
+            } else {
+                // PPT (binary) — best effort text extraction via LibreOffice, else basic
+                try {
+                    const buf = fs.readFileSync(inputPath);
+                    const pdfBuf = await libreConvert(buf, '.pdf');
+                    fs.writeFileSync(outPath, pdfBuf);
+                    return outName;
+                } catch {
+                    slides = ['[PPT binary format requires LibreOffice for conversion.\nInstall from https://www.libreoffice.org]'];
+                }
+            }
+            if (!slides || slides.length === 0) slides = ['[No slides found in presentation]'];
+            const SLIDE_COLORS = ['#1a237e', '#1b5e20', '#b71c1c', '#4a148c', '#e65100', '#006064', '#37474f'];
+            const slidesHtml = slides.map((text, i) => {
+                const bg = SLIDE_COLORS[i % SLIDE_COLORS.length];
+                const lines = (text || '').split('\n').filter(Boolean);
+                const title = lines[0] || `Slide ${i + 1}`;
+                const body = lines.slice(1).map(l => `<p>${l.replace(/</g, '&lt;')}</p>`).join('');
+                return `<div class="slide" style="background:${bg}">
+  <div class="slide-num">Slide ${i + 1} / ${slides.length}</div>
+  <div class="slide-title">${title.replace(/</g, '&lt;')}</div>
+  <div class="slide-body">${body}</div>
+</div>`;
+            }).join('');
+            const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>
+  * { box-sizing: border-box; margin:0; padding:0; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background:#f0f0f0; }
+  .slide { width:254mm; min-height:143mm; margin:6mm auto; border-radius:8px;
+           padding: 16mm 18mm; color:#fff; page-break-after: always;
+           display:flex; flex-direction:column; justify-content:center;
+           box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+  .slide:last-child { page-break-after: auto; }
+  .slide-num { font-size: 9pt; opacity: 0.65; margin-bottom: 10px; }
+  .slide-title { font-size: 22pt; font-weight: 700; margin-bottom: 14px;
+                 line-height: 1.2; border-bottom: 2px solid rgba(255,255,255,0.4);
+                 padding-bottom: 10px; }
+  .slide-body { font-size: 13pt; line-height: 1.7; opacity: 0.9; }
+  .slide-body p { margin-bottom: 6px; }
+</style></head>
+<body>${slidesHtml}</body></html>`;
+            await htmlToPdf(html, outPath, {
+                format: 'A4',
+                margin: { top: '0', right: '0', bottom: '0', left: '0' },
+                pdfOpts: { landscape: true }
+            });
+            return outName;
+        } catch (err) {
+            console.error(`PPTX→PDF error:`, err.message);
+            throw new Error(`Failed to convert ${inExt} to PDF: ${err.message}`);
+        }
+    }
+
+    // ── ODT / RTF / ODS / ODP → PDF (LibreOffice, best-effort) ─────────────
+    const LIBRE_ONLY = ['ODT', 'RTF', 'ODS', 'ODP'];
+    if (LIBRE_ONLY.includes(inExt) && outExt === 'PDF') {
+        try {
+            const docBuf = fs.readFileSync(inputPath);
+            const pdfBuf = await libreConvert(docBuf, '.pdf');
+            fs.writeFileSync(outPath, pdfBuf);
+            return outName;
+        } catch (libreErr) {
+            throw new Error(`Converting ${inExt} to PDF requires LibreOffice. Install from https://www.libreoffice.org/ and add its 'program' folder to PATH.`);
+        }
+    }
+
+    // ── DOCX → HTML / TXT ───────────────────────────────────────────────────
     if (inExt === 'DOCX') {
         if (outExt === 'HTML') {
             const result = await mammoth.convertToHtml({ path: inputPath });
@@ -151,31 +438,6 @@ async function convertFile(inputPath, originalName, fromFmt, toFmt, quality, res
             const p = outPath.replace(/\.\w+$/, '.txt');
             fs.writeFileSync(p, result.value, 'utf8');
             return path.basename(p);
-        }
-        if (outExt === 'PDF') {
-            try {
-                const docBuf = fs.readFileSync(inputPath);
-                const pdfBuf = await libreConvert(docBuf, '.pdf', undefined);
-                fs.writeFileSync(outPath, pdfBuf);
-                return outName;
-            } catch (libreErr) {
-                console.warn('LibreOffice conversion failed, falling back to basic PDF generation:', libreErr.message);
-                const result = await mammoth.extractRawText({ path: inputPath });
-                const pdfDoc = await PDFDocument.create();
-                const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-
-                const lines = result.value.split('\n');
-                let page = pdfDoc.addPage([600, 800]);
-                let y = 750;
-                for (const line of lines) {
-                    if (y < 40) { page = pdfDoc.addPage([600, 800]); y = 750; }
-                    const cleaned = cleanPdfText(line.slice(0, 95));
-                    page.drawText(cleaned || ' ', { x: 50, y, size: 10.5, font });
-                    y -= 13.5;
-                }
-                fs.writeFileSync(outPath, await pdfDoc.save());
-                return outName;
-            }
         }
     }
 
@@ -245,8 +507,8 @@ async function convertFile(inputPath, originalName, fromFmt, toFmt, quality, res
         return outName;
     }
 
-    // ── TXT → PDF ─────────────────────────────────────────────────────────────
-    if (inExt === 'TXT' && outExt === 'PDF') {
+    // ── TXT / MD → PDF ───────────────────────────────────────────────────────
+    if ((inExt === 'TXT' || inExt === 'MD') && outExt === 'PDF') {
         const text = fs.readFileSync(inputPath, 'utf8');
         const pdfDoc = await PDFDocument.create();
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -262,6 +524,97 @@ async function convertFile(inputPath, originalName, fromFmt, toFmt, quality, res
         }
         fs.writeFileSync(outPath, await pdfDoc.save());
         return outName;
+    }
+
+    // ── HTML → PDF (Puppeteer – full visual render) ──────────────────────────
+    if (inExt === 'HTML' && outExt === 'PDF') {
+        try {
+            const html = fs.readFileSync(inputPath, 'utf8');
+            await htmlToPdf(html, outPath);
+            return outName;
+        } catch (err) {
+            throw new Error(`Failed to render HTML to PDF: ${err.message}`);
+        }
+    }
+
+    // ── CSV → PDF (Styled HTML table → Puppeteer) ────────────────────────────
+    if (inExt === 'CSV' && outExt === 'PDF') {
+        try {
+            const csv = fs.readFileSync(inputPath, 'utf8');
+            const wb = XLSX.read(csv, { type: 'string' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+            const header = rows[0] || [];
+            const body = rows.slice(1);
+            const headerHtml = header.map(c => `<th>${String(c ?? '').replace(/</g, '&lt;')}</th>`).join('');
+            const bodyHtml = body.map(r =>
+                `<tr>${header.map((_, i) => `<td>${String(r[i] ?? '').replace(/</g, '&lt;')}</td>`).join('')}</tr>`
+            ).join('');
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10pt; color: #222; }
+  table { border-collapse: collapse; width: 100%; }
+  th { background: #1a73e8; color: #fff; padding: 7px 10px; border: 1px solid #1558b0; font-size:10pt; }
+  td { padding: 5px 10px; border: 1px solid #ddd; font-size: 9.5pt; }
+  tr:nth-child(even) td { background: #f8f9fa; }
+</style></head><body><table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></body></html>`;
+            await htmlToPdf(html, outPath, { format: 'A3', margin: { top: '10mm', right: '8mm', bottom: '10mm', left: '8mm' } });
+            return outName;
+        } catch (err) {
+            throw new Error(`Failed to convert CSV to PDF: ${err.message}`);
+        }
+    }
+
+    // ── JSON → PDF ───────────────────────────────────────────────────────────
+    if (inExt === 'JSON' && outExt === 'PDF') {
+        try {
+            const json = fs.readFileSync(inputPath, 'utf8');
+            const text = JSON.stringify(JSON.parse(json), null, 2)
+                .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+  body { font-family: 'Courier New', monospace; font-size: 10pt; background: #1e1e1e; color: #d4d4d4; padding: 20px; }
+  pre { white-space: pre-wrap; word-break: break-all; }
+  .key { color: #9cdcfe; } .str { color: #ce9178; } .num { color: #b5cea8; }
+</style></head><body><pre>${text}</pre></body></html>`;
+            await htmlToPdf(html, outPath, { pdfOpts: { printBackground: true } });
+            return outName;
+        } catch (err) {
+            throw new Error(`Failed to convert JSON to PDF: ${err.message}`);
+        }
+    }
+
+    // ── Generic → PDF fallback (LibreOffice or plain text embed) ─────────────
+    if (outExt === 'PDF') {
+        try {
+            const docBuf = fs.readFileSync(inputPath);
+            const pdfBuf = await libreConvert(docBuf, '.pdf');
+            fs.writeFileSync(outPath, pdfBuf);
+            return outName;
+        } catch (libreErr) {
+            console.warn(`Generic LibreOffice PDF fallback failed for ${inExt}:`, libreErr.message);
+            let raw = '';
+            try { raw = fs.readFileSync(inputPath, 'utf8').replace(/</g, '&lt;'); } catch { raw = `[Binary file: ${originalName}]`; }
+            const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; line-height: 1.6;
+         white-space: pre-wrap; word-break: break-word; color: #222; padding: 20px; }
+</style></head><body>${raw}</body></html>`;
+            try {
+                await htmlToPdf(html, outPath);
+            } catch (puppErr) {
+                // absolute last resort: pdf-lib plain text
+                const pdfDoc = await PDFDocument.create();
+                const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+                const lines = raw.replace(/&lt;/g, '<').split('\n').flatMap(l => l.match(/.{1,90}/g) || [' ']);
+                let page = pdfDoc.addPage([600, 800]);
+                let y = 750;
+                for (const line of lines) {
+                    if (y < 40) { page = pdfDoc.addPage([600, 800]); y = 750; }
+                    page.drawText(cleanPdfText(line) || ' ', { x: 50, y, size: 10, font });
+                    y -= 13;
+                }
+                fs.writeFileSync(outPath, await pdfDoc.save());
+            }
+            return outName;
+        }
     }
 
     // ── PDF → DOCX / TXT ──────────────────────────────────────────────────────
@@ -345,10 +698,10 @@ async function convertFile(inputPath, originalName, fromFmt, toFmt, quality, res
         const extract = require('extract-zip');
         const tmpDir = path.join(UPLOAD_DIR, `extract-${uuid()}`);
         fs.mkdirSync(tmpDir, { recursive: true });
-        
+
         await extract(inputPath, { dir: tmpDir });
         const files = fs.readdirSync(tmpDir);
-        
+
         if (files.length > 0) {
             // Pick first file that isn't a directory
             const firstFile = files.find(f => fs.statSync(path.join(tmpDir, f)).isFile());
@@ -375,6 +728,54 @@ async function convertFile(inputPath, originalName, fromFmt, toFmt, quality, res
     fs.copyFileSync(inputPath, copyPath);
     return path.basename(copyPath);
 }
+
+// ── Auth Routes ──────────────────────────────────────────────────────────────
+
+app.post('/api/auth/signup', async (req, res) => {
+    const { name, email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
+
+    try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.json({ success: true, user: { name: name || 'Demo User', email } });
+        }
+
+        const existing = await User.findOne({ email: email.toLowerCase() });
+        if (existing) return res.status(400).json({ error: 'User already exists' });
+
+        const user = await User.create({ name, email: email.toLowerCase(), password });
+        res.json({ success: true, user: { name: user.name, email: user.email } });
+    } catch (err) {
+        res.status(500).json({ error: 'Signup failed' });
+    }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
+
+    try {
+        if (mongoose.connection.readyState !== 1) {
+            return res.json({ success: true, user: { name: email.split('@')[0], email } });
+        }
+
+        const user = await User.findOne({ email: email.toLowerCase() });
+        if (!user) {
+            return res.status(404).json({
+                error: 'USER_NOT_FOUND',
+                message: 'Is this your first time in login in this app? Use sign up.'
+            });
+        }
+
+        if (user.password !== password) {
+            return res.status(401).json({ error: 'Invalid password' });
+        }
+
+        res.json({ success: true, user: { name: user.name, email: user.email } });
+    } catch (err) {
+        res.status(500).json({ error: 'Login failed' });
+    }
+});
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
@@ -417,6 +818,19 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
         const outputSize = fs.existsSync(outputPath) ? fs.statSync(outputPath).size : 0;
         const duration = Date.now() - start;
 
+        // Move to GridFS if available
+        let downloadUrl = `/outputs/${outputFile}`;
+        if (gridFSBucket) {
+            const uploadStream = gridFSBucket.openUploadStream(outputFile, {
+                metadata: { originalName, fromFmt, toFmt }
+            });
+            fs.createReadStream(outputPath).pipe(uploadStream)
+                .on('finish', () => {
+                    fs.unlink(outputPath, () => { }); // Clear local cache after upload
+                });
+            downloadUrl = `/api/files/${outputFile}`;
+        }
+
         const record = {
             id: uuid(),
             originalName,
@@ -433,7 +847,13 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
                         fromFmt.match(/^(MP4|AVI|MOV|MKV|WEBM|FLV)$/i) ? '🎬' :
                             fromFmt.match(/^(ZIP|TAR|GZ|7Z|BZ2|RAR)$/i) ? '📦' : '📁',
         };
-        history.unshift(record);
+
+        // Save to DB if available
+        if (mongoose.connection.readyState === 1) {
+            await Conversion.create(record);
+        } else {
+            history.unshift(record);
+        }
 
         // Clean up input
         fs.unlink(inputPath, () => { });
@@ -442,7 +862,7 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
             success: true,
             id: record.id,
             outputFile,
-            downloadUrl: `/outputs/${outputFile}`,
+            downloadUrl,
             outputSize,
             duration,
         });
@@ -466,6 +886,15 @@ app.post('/api/convert/batch', upload.array('files', 50), async (req, res) => {
             const outputFile = await convertFile(file.path, file.originalname, fromFmt, toFmt, quality, resolution);
             const outputPath = path.join(OUTPUT_DIR, outputFile);
             const outputSize = fs.existsSync(outputPath) ? fs.statSync(outputPath).size : 0;
+            
+            let downloadUrl = `/outputs/${outputFile}`;
+            if (gridFSBucket) {
+                const uploadStream = gridFSBucket.openUploadStream(outputFile);
+                fs.createReadStream(outputPath).pipe(uploadStream)
+                    .on('finish', () => fs.unlink(outputPath, () => { }));
+                downloadUrl = `/api/files/${outputFile}`;
+            }
+
             const record = {
                 id: uuid(),
                 originalName: file.originalname,
@@ -482,8 +911,13 @@ app.post('/api/convert/batch', upload.array('files', 50), async (req, res) => {
                             fromFmt.match(/^(MP4|AVI|MOV|MKV|WEBM|FLV)$/i) ? '🎬' :
                                 fromFmt.match(/^(ZIP|TAR|GZ|7Z|BZ2|RAR)$/i) ? '📦' : '📁',
             };
-            history.unshift(record);
-            results.push({ success: true, id: record.id, originalName: file.originalname, outputFile, downloadUrl: `/outputs/${outputFile}`, outputSize });
+
+            if (mongoose.connection.readyState === 1) {
+                await Conversion.create(record);
+            } else {
+                history.unshift(record);
+            }
+            results.push({ success: true, id: record.id, originalName: file.originalname, outputFile, downloadUrl, outputSize });
         } catch (err) {
             results.push({ success: false, originalName: file.originalname, error: err.message });
         }
@@ -493,10 +927,12 @@ app.post('/api/convert/batch', upload.array('files', 50), async (req, res) => {
 });
 
 // Get history
-app.get('/api/history', (req, res) => {
+app.get('/api/history', async (req, res) => {
     const { limit = 50, offset = 0, search = '', filter = 'All' } = req.query;
-    let data = history;
-    if (search) data = data.filter(h => h.originalName.toLowerCase().includes(search.toLowerCase()));
+
+    let dbQuery = {};
+    if (search) dbQuery.originalName = { $regex: search, $options: 'i' };
+
     if (filter !== 'All') {
         const grpMap = {
             Image: /^(JPG|JPEG|PNG|WEBP|GIF|AVIF|BMP|TIFF|SVG|HEIC)$/i,
@@ -506,41 +942,241 @@ app.get('/api/history', (req, res) => {
             Archive: /^(ZIP|TAR|GZ|7Z|BZ2|RAR|XZ)$/i,
         };
         const rx = grpMap[filter];
-        if (rx) data = data.filter(h => rx.test(h.fromFmt) || rx.test(h.toFmt));
+        if (rx) dbQuery.$or = [{ fromFmt: rx }, { toFmt: rx }];
     }
-    const total = data.length;
-    const page = data.slice(Number(offset), Number(offset) + Number(limit));
-    const totalInputSize = history.reduce((s, h) => s + h.inputSize, 0);
-    const totalOutputSize = history.reduce((s, h) => s + h.outputSize, 0);
-    res.json({ items: page, total, totalInputSize, totalOutputSize });
+
+    if (mongoose.connection.readyState === 1) {
+        try {
+            const items = await Conversion.find(dbQuery)
+                .sort({ createdAt: -1 })
+                .skip(Number(offset))
+                .limit(Number(limit));
+            const total = await Conversion.countDocuments(dbQuery);
+
+            // For total sizes across the whole history
+            const stats = await Conversion.aggregate([
+                { $group: { _id: null, totalInput: { $sum: "$inputSize" }, totalOutput: { $sum: "$outputSize" } } }
+            ]);
+
+            const historyWithUrls = items.map(item => ({
+                ...item.toObject(),
+                downloadUrl: gridFSBucket ? `/api/files/${item.outputFile}` : `/outputs/${item.outputFile}`
+            }));
+
+            res.json({
+                items: historyWithUrls,
+                total,
+                totalInputSize: stats[0]?.totalInput || 0,
+                totalOutputSize: stats[0]?.totalOutput || 0
+            });
+        } catch (err) {
+            res.status(500).json({ error: 'DB Fetch failed' });
+        }
+    } else {
+        // Fallback to in-memory filter logic
+        let data = history;
+        if (search) data = data.filter(h => h.originalName.toLowerCase().includes(search.toLowerCase()));
+        if (filter !== 'All') {
+            const grpMap = {
+                Image: /^(JPG|JPEG|PNG|WEBP|GIF|AVIF|BMP|TIFF|SVG|HEIC)$/i,
+                Document: /^(PDF|DOCX|XLSX|XLS|PPTX|TXT|RTF|ODT|CSV|HTML|MD)$/i,
+                Audio: /^(MP3|WAV|FLAC|AAC|OGG|M4A|OPUS|WMA)$/i,
+                Video: /^(MP4|AVI|MOV|MKV|WEBM|FLV|WMV)$/i,
+                Archive: /^(ZIP|TAR|GZ|7Z|BZ2|RAR|XZ)$/i,
+            };
+            const rx = grpMap[filter];
+            if (rx) data = data.filter(h => rx.test(h.fromFmt) || rx.test(h.toFmt));
+        }
+        const total = data.length;
+        const page = data.slice(Number(offset), Number(offset) + Number(limit));
+
+        const pageWithUrls = page.map(item => ({
+            ...item,
+            downloadUrl: gridFSBucket ? `/api/files/${item.outputFile}` : `/outputs/${item.outputFile}`
+        }));
+
+        res.json({
+            items: pageWithUrls,
+            total,
+            totalInputSize: history.reduce((s, h) => s + h.inputSize, 0),
+            totalOutputSize: history.reduce((s, h) => s + h.outputSize, 0)
+        });
+    }
 });
 
 // Delete history item
-app.delete('/api/history/:id', (req, res) => {
-    const idx = history.findIndex(h => h.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ error: 'Not found' });
-    const [record] = history.splice(idx, 1);
-    const outPath = path.join(OUTPUT_DIR, record.outputFile);
-    fs.unlink(outPath, () => { });
+app.delete('/api/history/:id', async (req, res) => {
+    let filename;
+    if (mongoose.connection.readyState === 1) {
+        const record = await Conversion.findOne({ id: req.params.id });
+        if (!record) return res.status(404).json({ error: 'Not found' });
+        filename = record.outputFile;
+        await Conversion.deleteOne({ id: req.params.id });
+    } else {
+        const idx = history.findIndex(h => h.id === req.params.id);
+        if (idx === -1) return res.status(404).json({ error: 'Not found' });
+        const [record] = history.splice(idx, 1);
+        filename = record.outputFile;
+    }
+
+    // Clear local file
+    const outPath = path.join(OUTPUT_DIR, filename);
+    if (fs.existsSync(outPath)) fs.unlink(outPath, () => { });
+
+    // Clear GridFS files
+    if (gridFSBucket) {
+        try {
+            const files = await gridFSBucket.find({ filename }).toArray();
+            for (const f of files) {
+                await gridFSBucket.delete(f._id);
+            }
+        } catch (e) { }
+    }
+
     res.json({ success: true });
 });
 
-// Stats
-app.get('/api/stats', (_, res) => {
-    const totalFiles = history.length;
-    const totalSize = history.reduce((s, h) => s + h.inputSize, 0);
-    const savedSize = history.reduce((s, h) => s + Math.max(0, h.inputSize - h.outputSize), 0);
-    const avgDuration = history.length ? Math.round(history.reduce((s, h) => s + h.duration, 0) / history.length) : 0;
-    const byType = {};
-    history.forEach(h => {
-        const t = h.fromFmt.match(/^(JPG|JPEG|PNG|WEBP|GIF|AVIF|BMP|TIFF|SVG)$/i) ? 'Image' :
-            h.fromFmt.match(/^(PDF|DOCX|XLSX|XLS|TXT|RTF|ODT|CSV|HTML)$/i) ? 'Document' :
-                h.fromFmt.match(/^(MP3|WAV|FLAC|AAC|OGG|M4A)$/i) ? 'Audio' :
-                    h.fromFmt.match(/^(MP4|AVI|MOV|MKV|WEBM)$/i) ? 'Video' : 'Other';
-        byType[t] = (byType[t] || 0) + 1;
-    });
-    res.json({ totalFiles, totalSize, savedSize, avgDuration, byType });
+// Clear ALL history
+app.delete('/api/history', async (req, res) => {
+    try {
+        // 1. Delete all physical files in OUTPUT_DIR
+        const files = fs.readdirSync(OUTPUT_DIR);
+        files.forEach(file => {
+            const filePath = path.join(OUTPUT_DIR, file);
+            try { fs.unlinkSync(filePath); } catch (e) { }
+        });
+
+        // 2. Clear DB / Memory
+        if (mongoose.connection.readyState === 1) {
+            await Conversion.deleteMany({});
+        } else {
+            history = [];
+        }
+
+        res.json({ success: true, message: 'All history and files cleared.' });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to clear history' });
+    }
 });
+
+// Stats
+app.get('/api/stats', async (_, res) => {
+    if (mongoose.connection.readyState === 1) {
+        const totalFiles = await Conversion.countDocuments();
+        const stats = await Conversion.aggregate([
+            { $group: { _id: null, totalSize: { $sum: "$inputSize" }, outputSize: { $sum: "$outputSize" }, avgDuration: { $avg: "$duration" } } }
+        ]);
+
+        const byTypeDocs = await Conversion.aggregate([
+            {
+                $group: {
+                    _id: {
+                        $cond: [
+                            { $regexMatch: { input: "$fromFmt", regex: /^(JPG|JPEG|PNG|WEBP|GIF|AVIF|BMP|TIFF|SVG)$/i } }, "Image",
+                            {
+                                $cond: [
+                                    { $regexMatch: { input: "$fromFmt", regex: /^(PDF|DOCX|XLSX|XLS|PPTX|TXT|RTF|ODT|CSV|HTML)$/i } }, "Document",
+                                    {
+                                        $cond: [
+                                            { $regexMatch: { input: "$fromFmt", regex: /^(MP3|WAV|FLAC|AAC|OGG|M4A)$/i } }, "Audio",
+                                            {
+                                                $cond: [
+                                                    { $regexMatch: { input: "$fromFmt", regex: /^(MP4|AVI|MOV|MKV|WEBM|FLV)$/i } }, "Video", "Other"
+                                                ]
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const byType = {};
+        byTypeDocs.forEach(d => byType[d._id] = d.count);
+
+        res.json({
+            totalFiles,
+            totalSize: stats[0]?.totalSize || 0,
+            savedSize: Math.max(0, (stats[0]?.totalSize || 0) - (stats[0]?.outputSize || 0)),
+            avgDuration: Math.round(stats[0]?.avgDuration || 0),
+            byType
+        });
+    } else {
+        const totalFiles = history.length;
+        const totalSize = history.reduce((s, h) => s + h.inputSize, 0);
+        const savedSize = history.reduce((s, h) => s + Math.max(0, h.inputSize - h.outputSize), 0);
+        const avgDuration = history.length ? Math.round(history.reduce((s, h) => s + h.duration, 0) / history.length) : 0;
+        const byType = {};
+        history.forEach(h => {
+            const t = h.fromFmt.match(/^(JPG|JPEG|PNG|WEBP|GIF|AVIF|BMP|TIFF|SVG)$/i) ? 'Image' :
+                h.fromFmt.match(/^(PDF|DOCX|XLSX|XLS|PPTX|TXT|RTF|ODT|CSV|HTML)$/i) ? 'Document' :
+                    h.fromFmt.match(/^(MP3|WAV|FLAC|AAC|OGG|M4A)$/i) ? 'Audio' :
+                        h.fromFmt.match(/^(MP4|AVI|MOV|MKV|WEBM|FLV)$/i) ? 'Video' : 'Other';
+            byType[t] = (byType[t] || 0) + 1;
+        });
+        res.json({ totalFiles, totalSize, savedSize, avgDuration, byType });
+    }
+});
+
+// ── Cleanup Logic ─────────────────────────────────────────────────────────────
+const CLEANUP_THRESHOLD = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+function runCleanup() {
+    console.log('[Cleanup] Periodic cleanup started...');
+    const now = Date.now();
+    let filesDeleted = 0;
+    let historyRemoved = 0;
+
+    // 1. Clean filesystem (uploads and outputs)
+    [UPLOAD_DIR, OUTPUT_DIR].forEach(dir => {
+        if (!fs.existsSync(dir)) return;
+
+        const files = fs.readdirSync(dir);
+        files.forEach(file => {
+            const filePath = path.join(dir, file);
+            try {
+                const stats = fs.statSync(filePath);
+                if (now - stats.mtimeMs > CLEANUP_THRESHOLD) {
+                    fs.unlinkSync(filePath);
+                    filesDeleted++;
+                }
+            } catch (err) {
+                // File might have been deleted by another process
+            }
+        });
+    });
+
+    // 2. Clean history (Memory only fallback)
+    if (mongoose.connection.readyState !== 1) {
+        const initialHistoryCount = history.length;
+        history = history.filter(item => {
+            const itemAge = now - new Date(item.createdAt).getTime();
+            return itemAge <= CLEANUP_THRESHOLD;
+        });
+
+        if (history.length !== initialHistoryCount) {
+            historyRemoved = initialHistoryCount - history.length;
+        }
+    } else {
+        // Mongo handles history cleanup via TTL index `expires: 86400`
+        console.log('[Cleanup] MongoDB TTL index is managing history record expiration.');
+    }
+
+    if (filesDeleted > 0 || historyRemoved > 0) {
+        console.log(`[Cleanup] Finished: Deleted ${filesDeleted} files and removed ${historyRemoved} history records.`);
+    } else {
+        console.log('[Cleanup] Finished: Nothing to clean.');
+    }
+}
+
+// Run cleanup every hour
+setInterval(runCleanup, 60 * 60 * 1000);
+// Run initial cleanup after 10 seconds
+setTimeout(runCleanup, 10000);
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => console.log(`FileForge API running on http://localhost:${PORT}`));

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
     LayoutDashboard, 
     RefreshCw, 
@@ -9,6 +9,8 @@ import {
     ChevronRight,
     Box
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { fetchStats } from '../utils/api';
 import './Sidebar.css';
 
 const navItems = [
@@ -19,18 +21,32 @@ const navItems = [
     { id: 'settings', icon: <Settings size={20} />, label: 'Settings' },
 ];
 
-const formatBadges = [
-    { label: 'Images', color: '#7c5cfc', count: 12 },
-    { label: 'Docs', color: '#00d4ff', count: 8 },
-    { label: 'Audio', color: '#22d3a0', count: 5 },
-    { label: 'Video', color: '#f59e0b', count: 3 },
-];
+export default function Sidebar({ activeNav, setActiveNav, collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
+    const { user } = useAuth();
+    const [counts, setCounts] = useState({ Image: 0, Document: 0, Audio: 0, Video: 0 });
 
-export default function Sidebar({ activeNav, setActiveNav }) {
-    const [collapsed, setCollapsed] = useState(false);
+    useEffect(() => {
+        fetchStats()
+            .then(data => {
+                if (data.byType) setCounts(data.byType);
+            })
+            .catch(() => {});
+    }, [activeNav]); // Refresh when navigating (e.g. back from conversion)
+
+    const formatBadges = [
+        { label: 'Images', color: '#7c5cfc', count: counts.Image || 0 },
+        { label: 'Docs', color: '#00d4ff', count: counts.Document || 0 },
+        { label: 'Audio', color: '#22d3a0', count: counts.Audio || 0 },
+        { label: 'Video', color: '#f59e0b', count: counts.Video || 0 },
+    ];
+
+    const displayName = user?.name
+        ? user.name.charAt(0).toUpperCase() + user.name.slice(1)
+        : 'User';
+    const avatarInitial = displayName.charAt(0).toUpperCase();
 
     return (
-        <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
+        <aside className={`sidebar${collapsed ? ' sidebar--collapsed' : ''}${mobileOpen ? ' sidebar--mobile-open' : ''}`}>
             {/* Logo */}
             <div className="sidebar__logo">
                 <div className="sidebar__logo-icon">
@@ -84,30 +100,21 @@ export default function Sidebar({ activeNav, setActiveNav }) {
                 </div>
             )}
 
-            {/* Storage usage */}
-            {!collapsed && (
-                <div className="sidebar__storage">
-                    <div className="sidebar__storage-header">
-                        <span className="sidebar__section-label" style={{ marginBottom: 0 }}>Storage</span>
-                        <span className="sidebar__storage-pct">68%</span>
-                    </div>
-                    <div className="sidebar__storage-bar">
-                        <div className="sidebar__storage-fill" style={{ width: '68%' }} />
-                    </div>
-                    <p className="sidebar__storage-info">3.4 GB of 5 GB used</p>
-                </div>
-            )}
-
-            {/* User */}
-            <div className="sidebar__user">
-                <div className="sidebar__user-avatar">H</div>
+            {/* User — click to go to Account page */}
+            <button
+                className="sidebar__user"
+                onClick={() => setActiveNav('account')}
+                title="View Account"
+                id="sidebar-account-btn"
+            >
+                <div className="sidebar__user-avatar">{avatarInitial}</div>
                 {!collapsed && (
                     <div className="sidebar__user-info">
-                        <span className="sidebar__user-name">HAI</span>
-                        <span className="sidebar__user-plan">Pro Plan</span>
+                        <span className="sidebar__user-name">{displayName}</span>
+                        <span className="sidebar__user-plan">Free Account</span>
                     </div>
                 )}
-            </div>
+            </button>
         </aside>
     );
 }

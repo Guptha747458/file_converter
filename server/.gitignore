@@ -9,3 +9,4 @@ outputs
 uploads
 scratch
 .env
+storage.js

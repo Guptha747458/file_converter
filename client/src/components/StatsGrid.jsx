@@ -33,15 +33,6 @@ export default function StatsGrid() {
             color: '#7c5cfc',
         },
         {
-            id: 'stat-saved',
-            label: 'Space Saved',
-            value: saved,
-            change: 'vs original',
-            positive: true,
-            icon: <Activity size={20} />,
-            color: '#22d3a0',
-        },
-        {
             id: 'stat-speed',
             label: 'Avg. Speed',
             value: avgSec,

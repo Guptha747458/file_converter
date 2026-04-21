@@ -73,6 +73,10 @@
   /* Sidebar width tokens (used across files) */
   --sidebar-width: 260px;
   --sidebar-collapsed-width: 72px;
+
+  /* Sidebar floating glass */
+  --sidebar-glass-bg: rgba(15, 14, 26, 0.78);
+  --sidebar-shadow: rgba(0, 0, 0, 0.45);
 }
 
 /* ---- Light Mode Overrides ---- */
@@ -109,6 +113,10 @@
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.12);
   --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.16);
+
+  /* Sidebar floating glass — light mode */
+  --sidebar-glass-bg: rgba(235, 238, 250, 0.82);
+  --sidebar-shadow: rgba(0, 0, 0, 0.10);
 }
 
 /* ---- Global Reset ---- */

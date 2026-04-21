@@ -70,17 +70,16 @@ export default function HistoryPage() {
     const load = useCallback(async () => {
         try {
             const data = await fetchHistory({ search, filter });
-            if (data.items && data.items.length > 0) {
-                setItems(data.items);
-                setStats({ total: data.total, totalInputSize: data.totalInputSize, totalOutputSize: data.totalOutputSize });
-            } else {
-                // Show demo data when server has no conversions yet
-                setItems(DEMO_DATA);
-                setStats({ total: DEMO_DATA.length, totalInputSize: DEMO_DATA.reduce((s, d) => s + d.inputSize, 0), totalOutputSize: DEMO_DATA.reduce((s, d) => s + d.outputSize, 0) });
-            }
-        } catch {
-            setItems(DEMO_DATA);
-            setStats({ total: DEMO_DATA.length, totalInputSize: DEMO_DATA.reduce((s, d) => s + d.inputSize, 0), totalOutputSize: DEMO_DATA.reduce((s, d) => s + d.outputSize, 0) });
+            setItems(data.items || []);
+            setStats({ 
+                total: data.total || 0, 
+                totalInputSize: data.totalInputSize || 0, 
+                totalOutputSize: data.totalOutputSize || 0 
+            });
+        } catch (err) {
+            console.error('History load error:', err);
+            setItems([]);
+            setStats({ total: 0, totalInputSize: 0, totalOutputSize: 0 });
         } finally {
             setLoading(false);
         }
@@ -135,8 +134,6 @@ export default function HistoryPage() {
                 {[
                     { label: 'Total Files', value: stats.total.toLocaleString(), icon: <Folder size={18} />, color: '#7c5cfc' },
                     { label: 'Data Processed', value: fmtSize(stats.totalInputSize), icon: <HardDrive size={18} />, color: '#00d4ff' },
-                    { label: 'Space Change', value: savedSize >= 0 ? `-${fmtSize(savedSize)}` : `+${fmtSize(-savedSize)}`, icon: <Zap size={18} />, color: '#22d3a0' },
-                    { label: 'Output Size', value: fmtSize(stats.totalOutputSize), icon: <BarChart3 size={18} />, color: '#f59e0b' },
                 ].map(s => (
                     <div key={s.label} className="history-stat glass-card">
                         <span className="history-stat__icon" style={{ background: `${s.color}18`, color: s.color }}>{s.icon}</span>
@@ -229,11 +226,11 @@ export default function HistoryPage() {
                                         <td className="history-row__time">{relativeTime(h.createdAt)}</td>
                                         <td>
                                             <div className="history-row__actions">
-                                                {h.outputFile && (
+                                                {h.downloadUrl && (
                                                     <button
                                                         className="history-row__action-btn history-row__action-btn--dl"
                                                         title="Download"
-                                                        onClick={() => downloadFile(`/outputs/${h.outputFile}`, h.outputFile)}
+                                                        onClick={() => downloadFile(h.downloadUrl, h.originalName)}
                                                     ><Download size={14} /></button>
                                                 )}
                                                 <button
