@@ -6,7 +6,6 @@ FileForge is a powerful, full-stack web application designed to handle high-perf
 ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
 ![MongoDB](https://img.shields.io/badge/MongoDB-47A248?style=for-the-badge&logo=mongodb&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)
 
 ## 🚀 Key Features
 
@@ -15,9 +14,8 @@ FileForge is a powerful, full-stack web application designed to handle high-perf
   - **Images**: PNG, JPG, WEBP, HEIC, BMP, etc.
   - **Media**: MP4, MKV, MP3, WAV, etc. (Powered by FFmpeg).
   - **Archives**: ZIP, 7Z, TAR.
-- **High-Fidelity Conversions**: Precision PPTX to PDF rendering using LibreOffice integration.
-- **Asynchronous Processing**: Background job management using Redis and BullMQ for reliable long-running tasks.
-- **Secure Persistence**: File storage leveraging MongoDB GridFS to ensure data integrity.
+- **High-Fidelity Conversions**: Precision PPTX to PDF rendering and office document support via LibreOffice integration.
+- **Secure Persistence**: File storage leveraging MongoDB GridFS to ensure data integrity across sessions.
 - **Modern UI/UX**: Responsive React frontend featuring:
   - Glassmorphism design aesthetics.
   - Floating sidebar navigation.
@@ -36,7 +34,6 @@ FileForge is a powerful, full-stack web application designed to handle high-perf
 ### Backend
 - **Runtime**: Node.js (Express)
 - **Database**: MongoDB (Mongoose) + GridFS for storage
-- **Queue System**: Redis + BullMQ
 - **Processing Engines**:
   - **FFmpeg**: Video/Audio processing
   - **LibreOffice**: Office document conversion
@@ -51,12 +48,11 @@ file_converter/
 ├── client/           # React Frontend (Vite)
 │   ├── src/
 │   │   ├── components/  # Reusable UI components
-│   │   ├── pages/       # Page layouts (Convert, History, Auth, etc.)
-│   │   └── utils/       # API and helper functions
+│   │   └── pages/       # Page layouts (Convert, History, Auth, etc.)
 └── server/           # Node.js Backend
-    ├── modules/      # Conversion logic (FFmpeg, LibreOffice, etc.)
-    ├── models/       # MongoDB Schemas
-    └── routes/       # Express API Endpoints
+    ├── index.js      # Core API logic and conversion engine
+    ├── uploads/      # Temporary storage for uploaded files
+    └── outputs/      # Temporary storage for converted files
 ```
 
 ## 🚀 Getting Started
@@ -66,8 +62,7 @@ file_converter/
 To run FileForge locally, you need the following installed on your system:
 
 - **Node.js**: v18 or higher
-- **MongoDB**: A running instance (local or Atlas)
-- **Redis**: A running instance (required for task queuing)
+- **MongoDB**: A running instance (local or MongoDB Atlas)
 - **System Dependencies**:
   - **FFmpeg**: Required for media conversions.
   - **LibreOffice**: Required for office document conversions (ensure `soffice` is in your PATH).
@@ -85,9 +80,7 @@ To run FileForge locally, you need the following installed on your system:
     Create a `.env` file in the `server/` directory:
     ```env
     PORT=4000
-    DATABASE_URL=mongodb://localhost:27017/fileforge
-    REDIS_HOST=127.0.0.1
-    REDIS_PORT=6379
+    DATABASE_URL=mongodb://your-mongodb-uri
     ```
 
 3.  **Install & Run Backend**:
