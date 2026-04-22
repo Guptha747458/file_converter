@@ -1,0 +1,36 @@
+services:
+  # ── Backend API Service ─────────────────────────────────────────────────────
+  - type: web
+    name: file-forge-api
+    env: node
+    region: ohio
+    plan: free
+    # Build command installs Node deps, LibreOffice, 7-Zip, and Puppeteer Chrome
+    buildCommand: cd server && chmod +x render-build.sh && ./render-build.sh
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+      - key: PORT
+        value: 4000
+      - key: SOFFICE_PATH
+        value: ./.libreoffice/soffice
+      - key: PUPPETEER_CACHE_DIR
+        value: ./.cache/puppeteer
+      - key: DATABASE_URL
+        sync: false # IMPORTANT: Set your MongoDB Atlas URI in the Render Dashboard
+
+  # ── Frontend Client Service ──────────────────────────────────────────────────
+  - type: web
+    name: file-forge-ui
+    env: static
+    region: ohio
+    plan: free
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: ./client/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          name: file-forge-api
+          type: web
+          property: host

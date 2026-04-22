@@ -14,11 +14,18 @@ const mammoth = require('mammoth');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const pdf = require('pdf-parse');
 const ffmpeg = require('fluent-ffmpeg');
+const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
+const ffprobeInstaller = require('@ffprobe-installer/ffprobe');
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+ffmpeg.setFfprobePath(ffprobeInstaller.path);
+
 const { Document, Packer, Paragraph, TextRun } = require('docx');
 const libre = require('libreoffice-convert');
+const librePath = process.env.SOFFICE_PATH || null;
 const util = require('util');
 const libreConvert = (buf, targetExt) => new Promise((resolve, reject) => {
-    libre.convert(buf, targetExt, undefined, (err, data) => {
+    const options = librePath ? { sofficePath: librePath } : undefined;
+    libre.convert(buf, targetExt, options, (err, data) => {
         if (err) reject(err);
         else resolve(data);
     });
@@ -31,6 +38,7 @@ async function htmlToPdf(htmlContent, outPath, opts = {}) {
     const puppeteer = require('puppeteer');
     const browser = await puppeteer.launch({
         headless: true,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
     });
     try {
