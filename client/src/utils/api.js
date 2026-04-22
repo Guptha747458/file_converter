@@ -1,9 +1,10 @@
 // ── Base URL ──────────────────────────────────────────────────────────────────
 // In dev, Vite proxies /api → http://localhost:4000. In prod, VITE_API_URL is
 // set to the backend hostname by Render (e.g. "file-forge-api.onrender.com").
-const BASE = import.meta.env.VITE_API_URL
-    ? `https://${import.meta.env.VITE_API_URL}/api`
-    : '/api';
+const HOST = import.meta.env.VITE_API_URL
+    ? `https://${import.meta.env.VITE_API_URL}`
+    : '';
+const BASE = HOST ? `${HOST}/api` : '/api';
 
 function fmtSize(bytes) {
     if (!bytes || bytes === 0) return '0 B';
@@ -11,6 +12,19 @@ function fmtSize(bytes) {
     if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
     if (bytes < 1073741824) return `${(bytes / 1048576).toFixed(2)} MB`;
     return `${(bytes / 1073741824).toFixed(2)} GB`;
+}
+
+// ── Auth Helper ───────────────────────────────────────────────────────────────
+function getAuthHeaders() {
+    const headers = {};
+    try {
+        const stored = localStorage.getItem('fileforge_user');
+        if (stored) {
+            const user = JSON.parse(stored);
+            if (user && user.email) headers['x-user-email'] = user.email;
+        }
+    } catch {}
+    return headers;
 }
 
 // ── Health ────────────────────────────────────────────────────────────────────
@@ -30,6 +44,11 @@ export async function convertFile({ file, toFmt, quality = 'high', onProgress })
     return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', `${BASE}/convert`);
+        
+        const authHeaders = getAuthHeaders();
+        if (authHeaders['x-user-email']) {
+            xhr.setRequestHeader('x-user-email', authHeaders['x-user-email']);
+        }
         xhr.upload.onprogress = (e) => {
             if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 50));
         };
@@ -54,7 +73,11 @@ export async function convertBatch({ files, toFmt, quality = 'high' }) {
     files.forEach(f => form.append('files', f));
     form.append('toFmt', toFmt);
     form.append('quality', quality);
-    const r = await fetch(`${BASE}/convert/batch`, { method: 'POST', body: form });
+    const r = await fetch(`${BASE}/convert/batch`, { 
+        method: 'POST', 
+        body: form,
+        headers: getAuthHeaders()
+    });
     if (!r.ok) throw new Error((await r.json()).error || 'Batch conversion failed');
     return r.json();
 }
@@ -62,25 +85,32 @@ export async function convertBatch({ files, toFmt, quality = 'high' }) {
 // ── History ───────────────────────────────────────────────────────────────────
 export async function fetchHistory({ limit = 50, offset = 0, search = '', filter = 'All' } = {}) {
     const params = new URLSearchParams({ limit, offset, search, filter });
-    const r = await fetch(`${BASE}/history?${params}`);
+    const r = await fetch(`${BASE}/history?${params}`, {
+        headers: getAuthHeaders()
+    });
     return r.json();  // { items, total, totalInputSize, totalOutputSize }
 }
 
 export async function deleteHistoryItem(id) {
-    const r = await fetch(`${BASE}/history/${id}`, { method: 'DELETE' });
+    const r = await fetch(`${BASE}/history/${id}`, { 
+        method: 'DELETE',
+        headers: getAuthHeaders()
+    });
     return r.json();
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
 export async function fetchStats() {
-    const r = await fetch(`${BASE}/stats`);
+    const r = await fetch(`${BASE}/stats`, {
+        headers: getAuthHeaders()
+    });
     return r.json();
 }
 
 // ── Download helper ───────────────────────────────────────────────────────────
 export function downloadFile(downloadUrl, filename) {
     const a = document.createElement('a');
-    a.href = downloadUrl;
+    a.href = downloadUrl.startsWith('/') ? `${HOST}${downloadUrl}` : downloadUrl;
     a.download = filename;
     a.click();
 }

@@ -1,16 +1,25 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null); // null = not logged in
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('fileforge_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
 
   const login = (userData) => {
     setUser(userData);
+    localStorage.setItem('fileforge_user', JSON.stringify(userData));
   };
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('fileforge_user');
   };
 
   return (

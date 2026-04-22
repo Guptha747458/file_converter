@@ -117,6 +117,7 @@ if (DATABASE_URL) {
 // ── Database Schema ──────────────────────────────────────────────────────────
 const conversionSchema = new mongoose.Schema({
     id: { type: String, unique: true },
+    userEmail: { type: String, default: 'anonymous' },
     originalName: String,
     fromFmt: String,
     toFmt: String,
@@ -839,8 +840,11 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
             downloadUrl = `/api/files/${outputFile}`;
         }
 
+        const userEmail = req.headers['x-user-email'] || 'anonymous';
+
         const record = {
             id: uuid(),
+            userEmail,
             originalName,
             fromFmt,
             toFmt: toFmt.toUpperCase(),
@@ -903,8 +907,11 @@ app.post('/api/convert/batch', upload.array('files', 50), async (req, res) => {
                 downloadUrl = `/api/files/${outputFile}`;
             }
 
+            const userEmail = req.headers['x-user-email'] || 'anonymous';
+
             const record = {
                 id: uuid(),
+                userEmail,
                 originalName: file.originalname,
                 fromFmt,
                 toFmt: toFmt.toUpperCase(),
@@ -937,8 +944,9 @@ app.post('/api/convert/batch', upload.array('files', 50), async (req, res) => {
 // Get history
 app.get('/api/history', async (req, res) => {
     const { limit = 50, offset = 0, search = '', filter = 'All' } = req.query;
+    const userEmail = req.headers['x-user-email'] || 'anonymous';
 
-    let dbQuery = {};
+    let dbQuery = { userEmail };
     if (search) dbQuery.originalName = { $regex: search, $options: 'i' };
 
     if (filter !== 'All') {
@@ -963,6 +971,7 @@ app.get('/api/history', async (req, res) => {
 
             // For total sizes across the whole history
             const stats = await Conversion.aggregate([
+                { $match: { userEmail } },
                 { $group: { _id: null, totalInput: { $sum: "$inputSize" }, totalOutput: { $sum: "$outputSize" } } }
             ]);
 
@@ -982,7 +991,7 @@ app.get('/api/history', async (req, res) => {
         }
     } else {
         // Fallback to in-memory filter logic
-        let data = history;
+        let data = history.filter(h => h.userEmail === userEmail);
         if (search) data = data.filter(h => h.originalName.toLowerCase().includes(search.toLowerCase()));
         if (filter !== 'All') {
             const grpMap = {
@@ -1014,14 +1023,15 @@ app.get('/api/history', async (req, res) => {
 
 // Delete history item
 app.delete('/api/history/:id', async (req, res) => {
+    const userEmail = req.headers['x-user-email'] || 'anonymous';
     let filename;
     if (mongoose.connection.readyState === 1) {
-        const record = await Conversion.findOne({ id: req.params.id });
+        const record = await Conversion.findOne({ id: req.params.id, userEmail });
         if (!record) return res.status(404).json({ error: 'Not found' });
         filename = record.outputFile;
         await Conversion.deleteOne({ id: req.params.id });
     } else {
-        const idx = history.findIndex(h => h.id === req.params.id);
+        const idx = history.findIndex(h => h.id === req.params.id && h.userEmail === userEmail);
         if (idx === -1) return res.status(404).json({ error: 'Not found' });
         const [record] = history.splice(idx, 1);
         filename = record.outputFile;
@@ -1055,10 +1065,11 @@ app.delete('/api/history', async (req, res) => {
         });
 
         // 2. Clear DB / Memory
+        const userEmail = req.headers['x-user-email'] || 'anonymous';
         if (mongoose.connection.readyState === 1) {
-            await Conversion.deleteMany({});
+            await Conversion.deleteMany({ userEmail });
         } else {
-            history = [];
+            history = history.filter(h => h.userEmail !== userEmail);
         }
 
         res.json({ success: true, message: 'All history and files cleared.' });
@@ -1068,14 +1079,17 @@ app.delete('/api/history', async (req, res) => {
 });
 
 // Stats
-app.get('/api/stats', async (_, res) => {
+app.get('/api/stats', async (req, res) => {
+    const userEmail = req.headers['x-user-email'] || 'anonymous';
     if (mongoose.connection.readyState === 1) {
-        const totalFiles = await Conversion.countDocuments();
+        const totalFiles = await Conversion.countDocuments({ userEmail });
         const stats = await Conversion.aggregate([
+            { $match: { userEmail } },
             { $group: { _id: null, totalSize: { $sum: "$inputSize" }, outputSize: { $sum: "$outputSize" }, avgDuration: { $avg: "$duration" } } }
         ]);
 
         const byTypeDocs = await Conversion.aggregate([
+            { $match: { userEmail } },
             {
                 $group: {
                     _id: {
@@ -1114,12 +1128,13 @@ app.get('/api/stats', async (_, res) => {
             byType
         });
     } else {
-        const totalFiles = history.length;
-        const totalSize = history.reduce((s, h) => s + h.inputSize, 0);
-        const savedSize = history.reduce((s, h) => s + Math.max(0, h.inputSize - h.outputSize), 0);
-        const avgDuration = history.length ? Math.round(history.reduce((s, h) => s + h.duration, 0) / history.length) : 0;
+        const userHistory = history.filter(h => h.userEmail === userEmail);
+        const totalFiles = userHistory.length;
+        const totalSize = userHistory.reduce((s, h) => s + h.inputSize, 0);
+        const savedSize = userHistory.reduce((s, h) => s + Math.max(0, h.inputSize - h.outputSize), 0);
+        const avgDuration = userHistory.length ? Math.round(userHistory.reduce((s, h) => s + h.duration, 0) / userHistory.length) : 0;
         const byType = {};
-        history.forEach(h => {
+        userHistory.forEach(h => {
             const t = h.fromFmt.match(/^(JPG|JPEG|PNG|WEBP|GIF|AVIF|BMP|TIFF|SVG)$/i) ? 'Image' :
                 h.fromFmt.match(/^(PDF|DOCX|XLSX|XLS|PPTX|TXT|RTF|ODT|CSV|HTML)$/i) ? 'Document' :
                     h.fromFmt.match(/^(MP3|WAV|FLAC|AAC|OGG|M4A)$/i) ? 'Audio' :
