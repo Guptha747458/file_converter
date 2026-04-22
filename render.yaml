@@ -13,7 +13,7 @@ services:
       - key: PORT
         value: 4000
       - key: SOFFICE_PATH
-        value: ./.libreoffice/soffice
+        value: /usr/bin/soffice
       - key: PUPPETEER_CACHE_DIR
         value: ./.cache/puppeteer
       - key: DATABASE_URL
