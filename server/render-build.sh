@@ -15,14 +15,15 @@ echo "--- Installing Puppeteer Chrome ---"
 npx puppeteer browsers install chrome || error_exit "Failed to install Puppeteer Chrome"
 
 # 3. Install LibreOffice
+# NOTE: Render build containers run as root, so 'sudo' is not available/needed.
 echo "--- Installing LibreOffice ---"
-sudo apt-get update -qq || error_exit "Failed to update package list"
-sudo apt-get install -y --no-install-recommends libreoffice || error_exit "Failed to install LibreOffice"
+apt-get update -qq || error_exit "Failed to update package list"
+apt-get install -y --no-install-recommends libreoffice || error_exit "Failed to install LibreOffice"
 echo "LibreOffice installed at: $(which soffice)"
 
 # 4. Install 7-Zip
 echo "--- Installing 7-Zip ---"
-sudo apt-get install -y --no-install-recommends p7zip-full || error_exit "Failed to install 7-Zip"
+apt-get install -y --no-install-recommends p7zip-full || error_exit "Failed to install 7-Zip"
 echo "7-Zip installed at: $(which 7z)"
 
 echo "--- All installations completed successfully! ---"
