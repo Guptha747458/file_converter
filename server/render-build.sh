@@ -6,24 +6,23 @@ function error_exit {
     exit 1
 }
 
-# Update package list
-sudo apt-get update || error_exit "Failed to update package list"
+# 1. Install Node.js dependencies
+echo "--- Installing Node.js dependencies ---"
+npm install || error_exit "Failed to install npm dependencies"
 
-# Install Node.js (use a more recent, stable version)
-curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash - || error_exit "Failed to set up Node.js repository"
-sudo apt-get install -y nodejs || error_exit "Failed to install Node.js"
+# 2. Install Puppeteer Chrome browser binary
+echo "--- Installing Puppeteer Chrome ---"
+npx puppeteer browsers install chrome || error_exit "Failed to install Puppeteer Chrome"
 
-# Install Puppeteer (ensure package.json exists)
-if [ -f "package.json" ]; then
-    npm install || error_exit "Failed to install npm dependencies"
-else
-    npm install puppeteer --save || error_exit "Failed to install Puppeteer"
-fi
+# 3. Install LibreOffice
+echo "--- Installing LibreOffice ---"
+sudo apt-get update -qq || error_exit "Failed to update package list"
+sudo apt-get install -y --no-install-recommends libreoffice || error_exit "Failed to install LibreOffice"
+echo "LibreOffice installed at: $(which soffice)"
 
-# Install LibreOffice
-sudo apt-get install -y libreoffice || error_exit "Failed to install LibreOffice"
+# 4. Install 7-Zip
+echo "--- Installing 7-Zip ---"
+sudo apt-get install -y --no-install-recommends p7zip-full || error_exit "Failed to install 7-Zip"
+echo "7-Zip installed at: $(which 7z)"
 
-# Install 7-Zip
-sudo apt-get install -y p7zip-full || error_exit "Failed to install 7-Zip"
-
-echo "All installations completed successfully!"
+echo "--- All installations completed successfully! ---"
