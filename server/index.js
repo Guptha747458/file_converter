@@ -1188,8 +1188,3 @@ setTimeout(runCleanup, 10000);
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => console.log(`FileForge API running on http://localhost:${PORT}`));
-
-const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-const ffprobeInstaller = require('@ffprobe-installer/ffprobe');
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-ffmpeg.setFfprobePath(ffprobeInstaller.path);
