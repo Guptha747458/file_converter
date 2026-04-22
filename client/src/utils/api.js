@@ -1,7 +1,9 @@
 // ── Base URL ──────────────────────────────────────────────────────────────────
-// In dev, Vite proxies /api → http://localhost:4000. In prod, same origin.
-// In dev, Vite proxies /api → http://localhost:4000. In prod, we use origin or env.
-const BASE = import.meta.env.VITE_API_URL || '/api';
+// In dev, Vite proxies /api → http://localhost:4000. In prod, VITE_API_URL is
+// set to the backend hostname by Render (e.g. "file-forge-api.onrender.com").
+const BASE = import.meta.env.VITE_API_URL
+    ? `https://${import.meta.env.VITE_API_URL}/api`
+    : '/api';
 
 function fmtSize(bytes) {
     if (!bytes || bytes === 0) return '0 B';

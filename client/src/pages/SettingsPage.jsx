@@ -289,7 +289,7 @@ export default function SettingsPage() {
                         onClick={async () => {
                             if (window.confirm('Are you sure you want to delete ALL history and files? This cannot be undone.')) {
                                 try {
-                                    await fetch('http://localhost:4000/api/history', { method: 'DELETE' });
+                                    await fetch('/api/history', { method: 'DELETE' });
                                     alert('History cleared successfully!');
                                 } catch (err) {
                                     alert('Failed to clear history.');
