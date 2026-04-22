@@ -4,7 +4,6 @@ services:
     name: file-forge-api
     env: node
     region: ohio
-    plan: free
     # Build command installs Node deps, LibreOffice, 7-Zip, and Puppeteer Chrome
     buildCommand: cd server && chmod +x render-build.sh && ./render-build.sh
     startCommand: cd server && npm start
