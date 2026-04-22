@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+.env
+uploads/
+outputs/
+.cache/
+scratch/
+test_assets/
+test_output.txt
+*.sh

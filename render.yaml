@@ -1,21 +1,19 @@
 services:
-  # ── Backend API Service ─────────────────────────────────────────────────────
+  # ── Backend API Service (Docker) ─────────────────────────────────────────────
+  # Uses a Dockerfile so we can install system packages (LibreOffice, FFmpeg, 7-Zip, Chrome)
   - type: web
     name: file-forge-api
-    env: node
+    env: docker
     region: ohio
-    # Build command installs Node deps, LibreOffice, 7-Zip, and Puppeteer Chrome
-    buildCommand: cd server && chmod +x render-build.sh && ./render-build.sh
-    startCommand: cd server && npm start
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
     envVars:
-      - key: NODE_VERSION
-        value: 20
       - key: PORT
         value: 4000
       - key: SOFFICE_PATH
         value: /usr/bin/soffice
       - key: PUPPETEER_CACHE_DIR
-        value: ./.cache/puppeteer
+        value: /app/.cache/puppeteer
       - key: DATABASE_URL
         sync: false # IMPORTANT: Set your MongoDB Atlas URI in the Render Dashboard
 
