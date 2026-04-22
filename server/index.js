@@ -184,7 +184,10 @@ app.get('/api/files/:filename', async (req, res) => {
             '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         };
         res.set('Content-Type', mimeTypes[ext] || 'application/octet-stream');
-        downloadStream.pipe(res);
+        downloadStream.on('error', err => {
+            console.error('GridFS download error:', err);
+            if (!res.headersSent) res.status(500).send('Error downloading file');
+        }).pipe(res);
     } catch (err) {
         res.status(500).send('Error retrieving file from database');
     }
@@ -833,7 +836,10 @@ app.post('/api/convert', upload.single('file'), async (req, res) => {
             const uploadStream = gridFSBucket.openUploadStream(outputFile, {
                 metadata: { originalName, fromFmt, toFmt }
             });
-            fs.createReadStream(outputPath).pipe(uploadStream)
+            fs.createReadStream(outputPath)
+                .on('error', err => console.error('Local file read error:', err))
+                .pipe(uploadStream)
+                .on('error', err => console.error('GridFS upload error:', err))
                 .on('finish', () => {
                     fs.unlink(outputPath, () => { }); // Clear local cache after upload
                 });
@@ -902,7 +908,10 @@ app.post('/api/convert/batch', upload.array('files', 50), async (req, res) => {
             let downloadUrl = `/outputs/${outputFile}`;
             if (gridFSBucket) {
                 const uploadStream = gridFSBucket.openUploadStream(outputFile);
-                fs.createReadStream(outputPath).pipe(uploadStream)
+                fs.createReadStream(outputPath)
+                    .on('error', err => console.error('Local file read error:', err))
+                    .pipe(uploadStream)
+                    .on('error', err => console.error('GridFS batch upload error:', err))
                     .on('finish', () => fs.unlink(outputPath, () => { }));
                 downloadUrl = `/api/files/${outputFile}`;
             }
