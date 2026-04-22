@@ -99,6 +99,19 @@ To run FileForge locally, you need the following installed on your system:
     ```
     The client will start on `http://localhost:5173`.
 
+## ☁️ Deployment (Render)
+
+FileForge is optimized for easy deployment on **Render** using the provided Blueprint configuration. The deployment consists of two services:
+1. **Frontend (`file-forge-ui`)**: A lightning-fast static site.
+2. **Backend API (`file-forge-api`)**: A Dockerized Node.js environment packed with system dependencies (LibreOffice, FFmpeg, Puppeteer).
+
+### How to Deploy
+1. Create an account on [Render.com](https://render.com).
+2. Go to your Render Dashboard and click **New +** -> **Blueprint**.
+3. Connect your GitHub repository containing FileForge.
+4. Render will automatically read the `render.yaml` file and provision both the frontend and backend.
+5. Once created, go to the **`file-forge-api`** service in your dashboard and add your MongoDB Atlas connection string as the `DATABASE_URL` environment variable.
+
 ## 📄 License
 
 This project is licensed under the ISC License.
